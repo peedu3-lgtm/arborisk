@@ -6,19 +6,21 @@ import io
 
 # --- ABIFUNKTSIOON TÄPITÄHTEDE JAOKS ---
 def safe_str(text):
-    """Asendab täpitähed, et vältida PDF-i vigu latin-1 koodis."""
+    """Asendab Eesti täpitähed, et vältida PDF-i vigu standardse Helvetica fondiga."""
     if not text: return ""
     rep = {'ä':'a','ö':'o','ü':'u','õ':'o','Ä':'A','Ö':'O','Ü':'U', 'Õ':'O', 'ž':'z', 'š':'s'}
     for k, v in rep.items():
-        text = text.replace(k, v)
+        text = str(text).replace(k, v)
     return text
 
 # --- TÄIUSTATUD PDF KLASS ---
 class ArboristPDF(FPDF):
     def header(self):
         self.set_font("Helvetica", 'B', 14)
-        self.cell(0, 10, "RISKIANALUUS JA OHUTUSPLAAN", ln=True, align='L')
-        self.ln(2)
+        self.cell(0, 10, "TOOKOHA RISKIANALUUS JA OHUTUSPLAAN", ln=True, align='C')
+        self.set_font("Helvetica", 'I', 8)
+        self.cell(0, 5, "Vastavalt Tootervishoiu ja toohutuse seadusele", ln=True, align='C')
+        self.ln(5)
 
     def section_title(self, label):
         self.set_font("Helvetica", 'B', 10)
@@ -27,150 +29,194 @@ class ArboristPDF(FPDF):
 
     def draw_info_row(self, label, value):
         self.set_font("Helvetica", 'B', 9)
-        self.cell(50, 8, safe_str(label), 1, 0, 'L')
+        self.cell(55, 8, safe_str(label), 1, 0, 'L')
         self.set_font("Helvetica", '', 9)
-        self.cell(140, 8, safe_str(value), 1, 1, 'L')
+        self.cell(135, 8, safe_str(value), 1, 1, 'L')
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("Helvetica", 'I', 8)
+        self.cell(0, 10, f"Lehekulg {self.page_no()}", 0, 0, 'C')
 
 # --- RAKENDUSE SEADED ---
-st.set_page_config(page_title="Arborisk Pro", layout="centered")
+st.set_page_config(page_title="Arborisk Pro - Tööinspektsiooni valmidus", layout="centered")
 
 st.title("🌳 Arborisk Pro")
-st.info("Täida väljad ja genereeri PDF. Mobiilis kasuta pildi lisamiseks kaamerat.")
+st.subheader("Töökeskkonna ohutuse hindamine")
 
-# --- ANDMETE SISESTAMINE ---
+# --- 1. ÜLDINFO ---
 with st.container():
-    st.subheader("🏢 Üldinfo")
-    ettevote = st.text_input("Ettevõte", "Framiter OÜ")
-    vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
-    aadress = st.text_input("Objekti aadress", "Jaska-Kuusiku")
+    st.info("📋 Objekti ja osapoolte andmed")
+    ettevote = st.text_input("Tööandja / Ettevõte", "Framiter OÜ")
+    vastutav = st.text_input("Tööjuht / Vastutav isik", "Ivar Peedu")
+    aadress = st.text_input("Töö teostamise aadress", "Jaska-Kuusiku")
+    kuupaev = st.date_today() if hasattr(st, 'date_today') else datetime.date.today()
 
-with st.expander("👤 Omaniku andmed"):
-    omanik_nimi = st.text_input("Nimi")
-    omanik_tel = st.text_input("Telefon")
+with st.expander("👤 Kliendi / Omaniku info"):
+    omanik_nimi = st.text_input("Omaniku nimi")
+    omanik_tel = st.text_input("Omaniku kontakttelefon")
 
-with st.expander("🚑 Päästeinfo"):
-    haigla = st.text_input("Lähim haigla", "Pärnu Haigla")
-    paaste_info = st.text_input("Päästetee juhis", "Juurdepääs kruusateelt")
-    hadaabi = st.text_input("Hädaabi", "112")
+with st.expander("🚑 Esmaabi ja Päästeinfo (Kohustuslik!)"):
+    hadaabi = st.text_input("Hädaabi number", "112")
+    haigla = st.text_input("Lähim EMO / Haigla", "Pärnu Haigla")
+    paaste_info = st.text_area("Juhised päästemeeskonnale (nt. sissesõit, takistused)", "Juurdepääs kruusateelt, väravad avatud.")
+    esmaabi_andja = st.text_input("Esmaabi andja kohapeal", vastutav)
 
 st.divider()
 
-# --- RISKIDE HINDAMINE ---
-st.subheader("⚠️ Riskide hindamine")
+# --- 2. RISKIDE HINDAMINE ---
+st.subheader("⚠️ Ohutegurite hindamine")
 
-seadmete_list = ["Mootorsaag", "Tõstuk", "Vints", "Hakkur", "Kännufrees", "Kraana", "Käsisaag", "Ronimisvarustus", "Muu..."]
-meetmete_list = ["Ohuala piiramine", "Isikukaitsevahendid (IKV)", "Liikluse reguleerimine", "Kõrvaliste isikute eemaldamine", "Liinide väljalülitus", "Muu..."]
-ohud_list = ["Ohuala märgistus", "Ilmastikuolud", "Puu seisund", "Hooned/vara", "Elektriliinid", "Liiklus", "Pinnas"]
+seadmete_list = ["Mootorsaag", "Akutrell/saag", "Tõstuk", "Vints", "Hakkur", "Kännufrees", "Kraana", "Ronimisvarustus", "Käsiraudsaag", "Muu..."]
+meetmete_list = ["Ohuala tähistamine lindiga", "Kiivri ja IKV kandmine", "Liikluse reguleerija", "Kõrvaliste isikute eemaldamine", "Elektriliini pinge väljalülitus", "Tööpeatamine tugeva tuulega", "Muu..."]
+
+ohud_list = [
+    "Kukkuvad oksad ja tüveosad",
+    "Kõrgusest kukkumine (ronimine/tõstuk)",
+    "Lõikevigastused (mootorsaag)",
+    "Elektrilöök (lähedalolevad liinid)",
+    "Kolmandad isikud ja liiklus",
+    "Ilmastikust tingitud ohud",
+    "Müra ja vibratsioon"
+]
 
 andmed = []
 
 for oht in ohud_list:
-    with st.expander(f"📍 {oht}", expanded=False):
+    with st.expander(f"📍 OHT: {oht}", expanded=False):
         c1, c2 = st.columns(2)
         with c1:
-            t = st.selectbox(f"Tõenäosus (1-5)", range(1, 6), key=oht+"t")
+            t = st.select_slider(f"Tõenäosus (T)", options=[1, 2, 3, 4, 5], key=oht+"t", help="1-ebatõenäoline, 5-pidev oht")
         with c2:
-            r = st.selectbox(f"Raskusaste (1-5)", range(1, 6), key=oht+"r")
+            r = st.select_slider(f"Tagajärg (R)", options=[1, 2, 3, 4, 5], key=oht+"r", help="1-kerge vigastus, 5-surm")
         
-        märkus = st.text_input("Märkus / Kirjeldus", key=oht+"m")
-        s = st.selectbox("Kasutatav seade", seadmete_list, key=oht+"s")
-        m = st.selectbox("Ennetav meede", meetmete_list, key=oht+"meede")
+        märkus = st.text_input("Ohu täpsustus (nt. pehkinud tüvi)", key=oht+"m")
+        s = st.multiselect("Kasutatavad töövahendid", seadmete_list, key=oht+"s")
+        m = st.multiselect("Ennetavad meetmed", meetmete_list, key=oht+"meede")
             
         skoor = t * r
         tase = "MADAL" if skoor <= 4 else "KESKMINE" if skoor <= 12 else "KÕRGE"
-        andmed.append({"oht": oht, "märkus": märkus, "seade": s, "meede": m, "t": t, "r": r, "skoor": skoor, "tase": tase})
-        st.write(f"Riskitase: **{tase}** ({skoor})")
+        andmed.append({
+            "oht": oht, 
+            "märkus": märkus, 
+            "seade": ", ".join(s), 
+            "meede": ", ".join(m), 
+            "t": t, "r": r, "skoor": skoor, "tase": tase
+        })
+        st.write(f"Riskiindeks: **{skoor}** | Tase: **{tase}**")
 
-st.subheader("📸 Objektifoto")
-foto = st.file_uploader("Lisa foto või tee pilt", type=['jpg', 'jpeg', 'png'])
+st.subheader("📸 Objekti fotod")
+foto = st.file_uploader("Lisa foto töömaast", type=['jpg', 'jpeg', 'png'])
 
-# --- PDF FUNKTSIOON ---
+# --- 3. PDF FUNKTSIOON ---
 def generate_pdf():
     pdf = ArboristPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     
-    # 1. Info
-    pdf.section_title("OBJEKTI JA OSAPOOLTE ANDMED")
-    pdf.draw_info_row("Ettevote", ettevote)
-    pdf.draw_info_row("Vastutav", vastutav)
-    pdf.draw_info_row("Aadress", aadress)
-    pdf.draw_info_row("Omanik", f"{omanik_nimi} {omanik_tel}")
-    pdf.draw_info_row("Kuupaev", str(datetime.date.today()))
+    # Üldinfo tabel
+    pdf.section_title("1. ULDISED ANDMED")
+    pdf.draw_info_row("Tooaandja", ettevote)
+    pdf.draw_info_row("Vastutav isik", vastutav)
+    pdf.draw_info_row("Objekti aadress", aadress)
+    pdf.draw_info_row("Kuupaev", str(kuupaev))
+    pdf.draw_info_row("Klient", f"{omanik_nimi} ({omanik_tel})")
     pdf.ln(5)
     
-    # 2. Pääste
-    pdf.section_title("PAASTEINFO")
-    pdf.draw_info_row("Hadaabi", hadaabi)
-    pdf.draw_info_row("Haigla", haigla)
-    pdf.draw_info_row("Juhis", paaste_info)
+    # Päästeinfo
+    pdf.section_title("2. ESMAABI JA PAASTEINFO")
+    pdf.draw_info_row("Hadaabinumber", hadaabi)
+    pdf.draw_info_row("Lahim haigla/EMO", haigla)
+    pdf.draw_info_row("Esmaabi andja", esmaabi_andja)
+    pdf.draw_info_row("Paastetee juhis", paaste_info)
     pdf.ln(5)
 
-    # 3. Tabeli päis
+    # Riskide tabel
+    pdf.section_title("3. RISKIDE HINDAMINE JA KONTROLLIMEETMED")
     pdf.set_font("Helvetica", 'B', 8)
     pdf.set_fill_color(240, 240, 240)
-    w = [35, 45, 35, 35, 10, 10, 20] 
-    pealkirjad = ["Oht", "Markus", "Seade", "Meede", "T", "R", "Skoor"]
+    
+    # Veergude laiused (kokku 190)
+    w = [35, 40, 30, 45, 10, 10, 20]
+    pealkirjad = ["Ohutegur", "Kirjeldus", "Toovahend", "Meetmed", "T", "R", "Indeks"]
     for i in range(len(pealkirjad)):
         pdf.cell(w[i], 8, pealkirjad[i], 1, 0, 'C', True)
     pdf.ln()
 
-    # 4. Tabeli sisu
     pdf.set_font("Helvetica", '', 7)
     for d in andmed:
         start_y = pdf.get_y()
-        # Kasutame safe_str funktsiooni igal pool
-        pdf.multi_cell(w[0], 7, safe_str(d['oht']), 1)
+        # Kontrollime, et tabel ei läheks lehelt välja
+        if start_y > 250:
+            pdf.add_page()
+            start_y = pdf.get_y()
+
+        # Multi-cell ridade kõrguse arvutamine
+        pdf.multi_cell(w[0], 6, safe_str(d['oht']), 1)
         next_y = pdf.get_y()
         
         pdf.set_xy(10 + w[0], start_y)
-        pdf.multi_cell(w[1], 7, safe_str(d['märkus']), 1)
+        pdf.multi_cell(w[1], 6, safe_str(d['märkus']), 1)
         if pdf.get_y() > next_y: next_y = pdf.get_y()
         
         pdf.set_xy(10 + w[0] + w[1], start_y)
-        pdf.cell(w[2], (next_y - start_y), safe_str(d['seade']), 1)
-        pdf.cell(w[3], (next_y - start_y), safe_str(d['meede']), 1)
-        pdf.cell(w[4], (next_y - start_y), str(d['t']), 1, 0, 'C')
-        pdf.cell(w[5], (next_y - start_y), str(d['r']), 1, 0, 'C')
+        pdf.multi_cell(w[2], 6, safe_str(d['seade']), 1)
+        if pdf.get_y() > next_y: next_y = pdf.get_y()
         
-        if d['skoor'] >= 15: pdf.set_text_color(255, 0, 0)
-        pdf.cell(w[6], (next_y - start_y), f"{d['skoor']}", 1, 1, 'C')
+        pdf.set_xy(10 + w[0] + w[1] + w[2], start_y)
+        pdf.multi_cell(w[3], 6, safe_str(d['meede']), 1)
+        if pdf.get_y() > next_y: next_y = pdf.get_y()
+        
+        h = next_y - start_y
+        pdf.set_xy(10 + w[0] + w[1] + w[2] + w[3], start_y)
+        pdf.cell(w[4], h, str(d['t']), 1, 0, 'C')
+        pdf.cell(w[5], h, str(d['r']), 1, 0, 'C')
+        
+        # Värv skoorile
+        if d['skoor'] >= 15: pdf.set_text_color(200, 0, 0)
+        pdf.cell(w[6], h, f"{d['skoor']} ({d['tase'][0]})", 1, 1, 'C')
         pdf.set_text_color(0, 0, 0)
         pdf.set_y(next_y)
 
-    # Pilt
+    # Allkirjad
+    pdf.ln(10)
+    pdf.set_font("Helvetica", 'B', 9)
+    pdf.cell(95, 10, "Koostaja allkiri: ____________________", 0, 0, 'L')
+    pdf.cell(95, 10, "Tootaja allkiri: ____________________", 0, 1, 'L')
+
+    # Pilt eraldi lehel
     if foto:
         try:
             pdf.add_page()
-            pdf.section_title("OBJEKTI FOTO")
+            pdf.section_title("LISA: OBJEKTI FOTO")
             img = Image.open(foto)
             img = img.convert('RGB')
-            img.thumbnail((800, 800)) 
+            img.thumbnail((800, 800))
             img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=70)
+            img.save(img_byte_arr, format='JPEG', quality=80)
             pdf.image(img_byte_arr, x=15, y=30, w=180)
-        except Exception as e:
-            st.error(f"Pildi viga: {e}")
+        except:
+            pass
 
-    # --- FIKSEERITUD OUTPUT ---
-    # See osa parandab sinu ekraanipildil olnud vea
-    pdf_output = pdf.output()
-    if isinstance(pdf_output, str):
-        return pdf_output.encode('latin-1', errors='replace')
-    return pdf_output
+    # --- KRIIITILINE PARANDUS: bytearray -> bytes ---
+    pdf_out = pdf.output()
+    if isinstance(pdf_out, (bytearray, bytes)):
+        return bytes(pdf_out)
+    return str(pdf_out).encode('latin-1', errors='replace')
 
 # --- NUPUD ---
 st.markdown("---")
-if st.button("🚀 GENEREERI LÕPLIK PDF", use_container_width=True):
-    with st.spinner("Valmistan faili ette..."):
+if st.button("🚀 GENEREERI AMMETLIK RISKIANALUUS", use_container_width=True):
+    with st.spinner("Genereerin dokumenti..."):
         try:
-            pdf_bytes = generate_pdf()
-            st.success("Analüüs on valmis!")
+            pdf_data = generate_pdf()
+            st.success("Dokument on valmis allalaadimiseks!")
             st.download_button(
-                label="📥 LAADI PDF ALLA",
-                data=pdf_bytes,
+                label="📥 LAADI PDF ALLA (Tööinspektsioonile)",
+                data=pdf_data,
                 file_name=f"Riskianalyys_{aadress.replace(' ', '_')}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
         except Exception as e:
-            st.error(f"Süsteemi viga: {e}")
+            st.error(f"Tekkis viga: {e}")
