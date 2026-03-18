@@ -13,7 +13,7 @@ st.header("1. Üldinfo")
 col1, col2 = st.columns(2)
 with col1:
     ettevote = st.text_input("Ettevõte", "Arboristiabi OÜ")
-    aadress = st.text_input("Objekti aadress")
+    aadress = st.text_input("Objekti aadress", "Männi tee 4")
     vastutav = st.text_input("Vastutav isik")
 with col2:
     tellija = st.text_input("Tellija / Kontakt")
@@ -32,6 +32,7 @@ col3, col4 = st.columns(2)
 with col3:
     ohuala = st.selectbox("Ohuala tähistus", ["Piiratud ohutuslindiga", "Valvuritega julgestatud", "Piiramata (eravaldus)", "Töötsoon tähistatud koonustega"])
     ilm = st.selectbox("Ilmastikuolud", ["Sobilik (tuul alla 8m/s)", "Tugev tuul", "Sadu / Mudane pinnas", "Kuumuskaitse"])
+    vara = st.selectbox("Lähim vara", ["Ohutus kauguses", "Hoone lähedal", "Piirdeaiad / Kasvuhooned", "Maa-alune kastmissüsteem", "Parkivad autod"])
 with col4:
     pinnas = st.selectbox("Pinnas ja trassid", ["Ei ole", "Maa-alused kaablid/trassid (kaevetööd!)", "Pehme/Vajuv pinnas", "Kivine/Raske pinnas", "Järsk kalle/Nõlv"])
     liiklus = st.selectbox("Liiklusolud", ["Vähene", "Tihe autoliiklus", "Jalakäijad", "Kergliiklustee servas"])
@@ -46,33 +47,57 @@ with col6:
     ergonoomika = st.selectbox("Terviseriskid", ["Ei ole", "Raskete koormate tõstmine", "Pidev sundasend", "Masinate vibratsioon"])
 
 # --- PDF GENEREERIMINE ---
-class PDF(FPDF):
-    def header(self):
-        self.set_font("Helvetica", 'B', 15)
-        self.cell(0, 12, "RISKIANALÜÜS: HALJASTUS JA PUUHOOLDUS", ln=True, align='C')
-
 def create_pdf():
-    pdf = PDF()
+    pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Helvetica", size=10)
-    pdf.cell(50, 8, "Ettevõte:", 1)
-    pdf.cell(140, 8, ettevote, 1, 1)
-    pdf.cell(50, 8, "Objekt:", 1)
-    pdf.cell(140, 8, aadress, 1, 1)
-    pdf.cell(50, 8, "Töö liik:", 1)
-    pdf.cell(140, 8, too_liik, 1, 1)
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(0, 10, "RISKIANALÜÜS PUUHOOLDUSTÖÖDEL", ln=True, align='C')
     pdf.ln(5)
     
-    pdf.set_font("Helvetica", 'B', 10)
-    pdf.cell(0, 10, " RISKID JA MEETMED", 1, 1, 'L')
-    pdf.set_font("Helvetica", size=9)
-    riskid = [("Ohuala", ohuala), ("Ilm", ilm), ("Pinnas", pinnas), ("Tehnika", tehnika)]
-    for r_l, r_v in riskid:
+    pdf.set_font("Helvetica", size=10)
+    # Üldinfo tabel
+    data = [
+        ("Ettevõte", ettevote),
+        ("Objekt", aadress),
+        ("Töö liik", too_liik),
+        ("Vastutav", vastutav),
+        ("Kuupäev", str(kuupaev))
+    ]
+    for label, value in data:
+        pdf.set_font("Helvetica", 'B', 10)
+        pdf.cell(50, 8, label, 1)
+        pdf.set_font("Helvetica", '', 10)
+        pdf.cell(140, 8, value, 1, 1)
+    
+    pdf.ln(10)
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.cell(0, 10, " ANALÜÜSI TULEMUSED", 1, 1, 'L')
+    
+    pdf.set_font("Helvetica", size=10)
+    results = [
+        ("Ohuala", ohuala), ("Ilm", ilm), ("Pinnas/Trassid", pinnas),
+        ("Vara", vara), ("Liiklus", liiklus), ("Tehnika", tehnika),
+        ("Kõrgustööd", korgustood), ("Tervis", ergonoomika)
+    ]
+    for r_l, r_v in results:
         pdf.cell(60, 8, r_l, 1)
         pdf.cell(130, 8, r_v, 1, 1)
     
-    return pdf.output(dest='S').encode('latin-1')
+    pdf.ln(10)
+    pdf.cell(0, 10, f"Kinnitaja: {vastutav} __________________________", ln=True)
+    
+    # See rida on nüüd parandatud:
+    return pdf.output()
 
 if st.button("Genereeri PDF"):
-    pdf_bytes = create_pdf()
-    st.download_button(label="📥 Laadi PDF alla", data=pdf_bytes, file_name="Riskianalyys.pdf", mime="application/pdf")
+    try:
+        pdf_output = create_pdf()
+        st.download_button(
+            label="📥 Laadi PDF alla",
+            data=bytes(pdf_output),
+            file_name="Riskianalyys.pdf",
+            mime="application/pdf"
+        )
+        st.success("PDF on valmis!")
+    except Exception as e:
+        st.error(f"Tekkis viga: {e}")
