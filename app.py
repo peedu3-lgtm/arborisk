@@ -8,142 +8,145 @@ import io
 class ArboristPDF(FPDF):
     def header(self):
         self.set_font("Helvetica", 'B', 14)
-        self.cell(0, 10, "RISKIANALÜÜS PUUHOOLDUSTÖÖDEL", ln=True, align='L')
+        self.cell(0, 10, "RISKIANALÜÜS JA OHUTUSPLAAN", ln=True, align='L')
         self.ln(2)
 
-    def draw_info_row(self, label, value, width=190):
+    def section_title(self, label):
+        self.set_font("Helvetica", 'B', 10)
+        self.set_fill_color(230, 230, 230)
+        self.cell(0, 8, f" {label}", 1, 1, 'L', True)
+
+    def draw_info_row(self, label, value):
         self.set_font("Helvetica", 'B', 9)
-        self.cell(50, 8, label, 1, 0, 'L')
+        self.cell(45, 8, label, 1, 0, 'L')
         self.set_font("Helvetica", '', 9)
-        self.cell(width-50, 8, str(value), 1, 1, 'L')
+        self.cell(145, 8, str(value), 1, 1, 'L')
 
 # --- ÄPI LIIDES ---
-st.set_page_config(page_title="Arboristi Riskianalüüs", layout="centered")
+st.set_page_config(page_title="Arboristi Riskianalüüs", layout="wide")
 
 with st.sidebar:
     st.header("📋 Üldinfo")
     ettevote = st.text_input("Ettevõte", "Arboristiabi OÜ")
-    tellija = st.text_input("Tellija nimi ja telefon")
     aadress = st.text_input("Objekti aadress")
-    too_kirjeldus = st.text_input("Tehtav töö")
-    tootajad = st.text_input("Töötajad objektil")
-    vastutav = st.text_input("Vastutav isik")
-    abitool = st.text_input("Abitelefon", "112 või lähim arborist...")
+    vastutav = st.text_input("Vastutav isik / Koostaja")
     kuupaev = st.date_input("Kuupäev", datetime.date.today())
     
     st.divider()
-    st.header("📸 Lisa foto")
+    st.header("📸 Objekti foto")
     foto = st.file_uploader("Vali fail", type=['jpg', 'jpeg', 'png'])
 
-st.title("🌳 Riskide hindamine objektil")
+st.title("🌳 Tööohutuse hindamine")
 
-# Tabeli sisu koostamine (Vastavalt sinu saadetud vormile)
-valdkonnad = [
-    ("Ohuala märgistused", "Mootorsaag"),
-    ("Ilmaolud", "Ronimisvarustus"),
-    ("Puu liik, seisund (mädanik jne)", "Sektsiooniline langetamine"),
-    ("Hooned, vara asukoht", "Vints"),
-    ("Tehnovõrgud (liinid, trassid)", "Kemikaalid"),
-    ("Teed, liiklusthedus", "Tõstuk"),
-    ("Pinnase seisund, kalle", "Hakkur / Oksapurusti"),
-    ("Naaberpuude seisund", "Kännufrees"),
-    ("Looduskaitselised väärtused", "Kraana"),
-    ("Bioloogilised ohud (herilased)", "Muud mehhanismid"),
-    ("Kõrvalised isikud objektil", "Isikukaitsevahendid")
+# Seadmete nimekiri valikuks
+seadmete_valik = [
+    "Mootorsaag", "Käsisid", "Ronimisvarustus", "Tõstuk", "Kännufrees", 
+    "Oksapurusti", "Vints", "Kraana", "Minilaadur", "Isikukaitsevahendid (IKV)", "Muu..."
+]
+
+ohud_list = [
+    "Ohuala märgistus ja piiramine",
+    "Ilmastikuolud (tuul, sademed)",
+    "Puu seisund (mädanik, tüvevead)",
+    "Hooned ja lähedalasuv vara",
+    "Elektriliinid ja tehnovõrgud",
+    "Liiklus ja kõrvalised isikud",
+    "Pinnase seisund ja kalle"
 ]
 
 andmed = []
-for silt_oht, silt_seade in valdkonnad:
-    st.markdown(f"### {silt_oht}")
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        kirjeldus = st.text_input("Eripära kirjeldus", key=silt_oht+"_k")
-    with col2:
-        t = st.selectbox("T (1-5)", [1,2,3,4,5], key=silt_oht+"_t", index=0)
-    with col3:
-        r = st.selectbox("R (1-5)", [1,2,3,4,5], key=silt_oht+"_r", index=1)
-    
-    risk_tase = "MADAL" if t*r <= 4 else "KESKMINE" if t*r <= 12 else "KÕRGE"
-    andmed.append({
-        "valdkond": silt_oht,
-        "kirjeldus": kirjeldus,
-        "seade": silt_seade,
-        "tase": risk_tase,
-        "skoor": f"{t}x{r}={t*r}"
-    })
-    st.divider()
+st.subheader("🔍 Ohutegurite analüüs")
+
+for oht in ohud_list:
+    with st.expander(f"📍 {oht}", expanded=True):
+        c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
+        with c1:
+            kirjeldus = st.text_input("Eripära / Märkused", key=oht+"_k")
+        with c2:
+            seade = st.selectbox("Kasutatav seade/meede", seadmete_valik, key=oht+"_s")
+            if seade == "Muu...":
+                seade = st.text_input("Täpsusta seadet", key=oht+"_custom")
+        with c3:
+            t = st.number_input("T (1-5)", 1, 5, 2, key=oht+"_t")
+        with c4:
+            r = st.number_input("R (1-5)", 1, 5, 3, key=oht+"_r")
+        
+        skoor = t * r
+        tase = "MADAL" if skoor <= 4 else "KESKMINE" if skoor <= 12 else "KÕRGE"
+        andmed.append({"oht": oht, "kirjeldus": kirjeldus, "seade": seade, "t": t, "r": r, "tase": tase, "skoor": skoor})
 
 # --- PDF LOOMINE ---
-def genereeri_puhas_pdf():
+def loo_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
     
-    # 1. Ülapaneel (Üldinfo)
+    # 1. Päis
     pdf.draw_info_row("Ettevõte", ettevote)
-    pdf.draw_info_row("Tellija nimi ja tel", tellija)
     pdf.draw_info_row("Objekti aadress", aadress)
-    pdf.draw_info_row("Tehtav töö", too_kirjeldus)
-    pdf.draw_info_row("Töötajad objektil", tootajad)
     pdf.draw_info_row("Vastutav isik", vastutav)
-    pdf.draw_info_row("Abitelefon", abitool)
     pdf.draw_info_row("Kuupäev", str(kuupaev))
     pdf.ln(5)
 
-    # 2. Riskide tabeli päis
+    # 2. Tabeli päis
     pdf.set_font("Helvetica", 'B', 8)
     pdf.set_fill_color(240, 240, 240)
-    pdf.cell(50, 10, "Tööala eripära", 1, 0, 'C', True)
-    pdf.cell(60, 10, "Kirjeldus", 1, 0, 'C', True)
-    pdf.cell(40, 10, "Kasutatav seade", 1, 0, 'C', True)
-    pdf.cell(40, 10, "Riskitase (TxR)", 1, 1, 'C', True)
+    pdf.cell(50, 10, "Ohutegur", 1, 0, 'C', True)
+    pdf.cell(55, 10, "Kirjeldus / Märkused", 1, 0, 'C', True)
+    pdf.cell(45, 10, "Seade / Meede", 1, 0, 'C', True)
+    pdf.cell(10, 10, "T", 1, 0, 'C', True)
+    pdf.cell(10, 10, "R", 1, 0, 'C', True)
+    pdf.cell(20, 10, "Skoor", 1, 1, 'C', True)
 
-    # 3. Tabeli read (Dünaamilise kõrgusega)
+    # 3. Tabeli sisu
     pdf.set_font("Helvetica", '', 8)
-    for r in andmed:
-        # Arvutame vajaliku kõrguse vastavalt tekstile
-        text_height = 8 
+    for d in andmed:
+        start_x = pdf.get_x()
+        start_y = pdf.get_y()
+        h = 10 # Rea baaskõrgus
         
-        # Joonistame lahtrid
-        curr_x = pdf.get_x()
-        curr_y = pdf.get_y()
+        pdf.multi_cell(50, h, d['oht'], 1, 'L')
+        pdf.set_xy(start_x + 50, start_y)
+        pdf.multi_cell(55, h, d['kirjeldus'], 1, 'L')
+        pdf.set_xy(start_x + 105, start_y)
+        pdf.multi_cell(45, h, d['seade'], 1, 'L')
+        pdf.set_xy(start_x + 150, start_y)
+        pdf.cell(10, h, str(d['t']), 1, 0, 'C')
+        pdf.cell(10, h, str(d['r']), 1, 0, 'C')
         
-        pdf.multi_cell(50, text_height, r['valdkond'], 1, 'L')
-        pdf.set_xy(curr_x + 50, curr_y)
-        pdf.multi_cell(60, text_height, r['kirjeldus'], 1, 'L')
-        pdf.set_xy(curr_x + 110, curr_y)
-        pdf.multi_cell(40, text_height, r['seade'], 1, 'L')
-        pdf.set_xy(curr_x + 150, curr_y)
-        
-        # Värvime riskitaseme
-        if r['tase'] == "KÕRGE": pdf.set_text_color(200, 0, 0)
-        elif r['tase'] == "KESKMINE": pdf.set_text_color(150, 100, 0)
+        # Värvime skoori vastavalt tasemele
+        if d['tase'] == "KÕRGE": pdf.set_text_color(200, 0, 0)
+        elif d['tase'] == "KESKMINE": pdf.set_text_color(150, 100, 0)
         else: pdf.set_text_color(0, 120, 0)
         
-        pdf.cell(40, text_height, f"{r['tase']} ({r['skoor']})", 1, 1, 'C')
+        pdf.cell(20, h, f"{d['skoor']} ({d['tase'][0]})", 1, 1, 'C')
         pdf.set_text_color(0, 0, 0)
 
-    # 4. Pilt eraldi lehel
+    # 4. T ja R selgitused (UUS OSA)
+    pdf.ln(10)
+    pdf.section_title("RISKIHINDAMISE SELGITUSED (T x R)")
+    pdf.set_font("Helvetica", '', 8)
+    pdf.multi_cell(0, 5, (
+        "T (Tõenäosus): 1-Väga väike; 2-Väike; 3-Keskmine; 4-Suur; 5-Väga suur (peaaegu kindel).\n"
+        "R (Raskusaste): 1-Ebaoluline (plaaster); 2-Kerge (haigusleht); 3-Keskmine (luumurd); 4-Raske (invaliidsus); 5-Surm.\n"
+        "Riskitase: 1-4 Madal (lubatud); 5-12 Keskmine (vajab lisameetmeid); 15-25 Kõrge (TÖÖ KEELATUD!)."
+    ), 1, 'L')
+
+    # 5. Pilt
     if foto:
         pdf.add_page()
-        pdf.set_font("Helvetica", 'B', 12)
-        pdf.cell(0, 10, "OBJEKTI FOTO", ln=True)
+        pdf.section_title("OBJEKTI FOTO")
         img = Image.open(foto)
-        # Muudame pildi suurust, et see mahuks lehele
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         pdf.image(img_byte_arr, x=15, y=30, w=180)
 
-    pdf.ln(10)
-    pdf.set_font("Helvetica", 'I', 9)
-    pdf.cell(0, 10, f"Riskianalüüsi koostas: {vastutav} ......................................... Kuupäev: {kuupaev}", ln=True)
-
     return pdf.output()
 
-if st.button("✅ GENEREERI PDF"):
-    pdf_bytes = genereeri_puhas_pdf()
+if st.button("🚀 GENEREERI PDF"):
+    pdf_bytes = loo_pdf()
     st.download_button(
-        label="📥 Laadi alla korrektne PDF",
+        label="📥 Laadi alla täiendatud PDF",
         data=bytes(pdf_bytes),
-        file_name=f"Riskianalyys_{aadress}.pdf",
+        file_name="Riskianalyys_Arborist.pdf",
         mime="application/pdf"
     )
