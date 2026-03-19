@@ -37,6 +37,10 @@ with c1:
     tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
     vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
     aadress = st.text_input("Objekti aadress", "")
+    # --- LISATUD OMANIKU ANDMED ---
+    omanik_nimi = st.text_input("Objekti omaniku nimi", "")
+    omanik_kontakt = st.text_input("Omaniku kontakt (telefon/e-post)", "")
+
 with c2:
     haigla = st.text_input("Lähim haigla/EMO", "PERH")
     esmaabi_koht = st.text_input("Esmaabivahendite asukoht", "Autos / Koostaja vööpaunal")
@@ -90,7 +94,7 @@ def genereeri_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
     
-    # 1. Üldandmed
+    # 1. Üldandmed (TÄIENDATUD OMANIKUGA)
     pdf.set_font("helvetica", 'B', 11)
     pdf.cell(0, 10, "1. ÜLDISED ANDMED JA PÄÄSTEINFO", ln=True)
     pdf.set_font("helvetica", '', 10)
@@ -98,6 +102,8 @@ def genereeri_pdf():
         table.row(["Tööandja", tooaandja])
         table.row(["Vastutav isik", vastutav])
         table.row(["Objekti aadress", aadress])
+        table.row(["Objekti omanik", f"{omanik_nimi} / {omanik_kontakt}"])
+        table.row(["Lähim haigla", haigla])
         table.row(["Esmaabi asukoht", esmaabi_koht])
         table.row(["Päästetee juhis", juhis])
         table.row(["Kuupäev", str(datetime.date.today())])
