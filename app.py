@@ -4,60 +4,57 @@ import datetime
 from PIL import Image
 import io
 
-# --- PDF KLASS MIS TOETAB EESTI KEELT ---
+# --- PROFESSIONAALNE PDF KLASS ---
 class ArboristPDF(FPDF):
     def header(self):
+        # Helvetica toetab eesti tähti fpdf2 raamistikus
         self.set_font("Helvetica", 'B', 14)
         self.cell(0, 10, "TÖÖKOHA RISKIANALÜÜS JA OHUTUSPLAAN", ln=True, align='C')
         self.ln(5)
 
 # --- VALIKUD RIPPMEENÜÜDESSE ---
 toovahendid_valik = [
-    "Mootorsaag", "Käsisaag", "Ronimisvarustus", "Tõstuk", "Hakkur", 
+    "", "Mootorsaag", "Käsisaag", "Ronimisvarustus", "Tõstuk", "Hakkur", 
     "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Muu..."
 ]
 
 meetmed_valik = [
-    "Ohuala tähistamine ja piiramine", 
-    "Kõrvaliste isikute eemaldamine",
-    "Isikukaitsevahendite (IKV) kasutamine", 
-    "Varustuse eelnev kontroll",
-    "Vintsimine ja suunamine", 
-    "Liikluse reguleerimine",
-    "Ohutu vahemaa hoidmine",
-    "Liinide väljalülitus/maandamine", 
-    "Muu..."
+    "", "Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine",
+    "Isikukaitsevahendite (IKV) kasutamine", "Varustuse eelnev kontroll",
+    "Vintsimine ja suunamine", "Liikluse reguleerimine",
+    "Ohutu vahemaa hoidmine", "Liinide väljalülitus/maandamine", "Muu..."
 ]
 
 # --- RAKENDUSE LIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
 st.title("🌳 Professionaalne Riskianalüüs")
 
-# 1. ÜLDISED ANDMED [cite: 2, 3]
+# 1. ÜLDISED ANDMED
 st.header("1. ÜLDISED ANDMED JA PÄÄSTE")
 c1, c2 = st.columns(2)
 with c1:
-    tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
-    vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
+    tooaandja = st.text_input("Tööandja (Ettevõte)", "")
+    vastutav = st.text_input("Vastutav isik / Koostaja", "")
     aadress = st.text_input("Objekti aadress", "")
 with c2:
-    omanik = st.text_input("Objekti omanik", "")
-    haigla = st.text_input("Lähim haigla/EMO", "PERH")
-    juhis = st.text_area("Päästetee juhis", "Ligipääs tänavalt, väravad avatud.")
+    omanik = st.text_input("Objekti omanik ja kontakt", "")
+    haigla = st.text_input("Lähim haigla / EMO", "")
+    juhis = st.text_area("Päästetee juhis", "")
 
 st.divider()
 
-# 2. RISKIDE HINDAMINE 
+# 2. RISKIDE HINDAMINE
 st.header("2. RISKIDE HINDAMINE")
 
-# Standardohud aluseks
+# Standardohud, mis on arboristitöös kriitilised
 ohud_base = [
-    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus"],
-    ["Kõrgusest kukkumine", "Ronimine/tõstukitöö"],
-    ["Puu langemine ebasobivas suunas", "Tüve langetamine"],
+    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus/langetamine"],
+    ["Kõrgusest kukkumine", "Ronimine või tõstukitöö"],
+    ["Puu langemine ebasobivas suunas", "Tüve langetamine/suunamine"],
     ["Lõikevigastused", "Saega töötamine"],
     ["Elektrilöök", "Töö liinide läheduses"],
-    ["Kolmandad isikud / Liiklus", "Töö avalikus kohas"]
+    ["Kolmandad isikud / Liiklus", "Töö avalikus kohas / tänaval"],
+    ["Müra ja vibratsioon", "Seadmete kasutus (hakkur, saag)"]
 ]
 
 tabeli_andmed = []
@@ -87,7 +84,7 @@ for i, oht in enumerate(ohud_base):
         tabeli_andmed.append([oht[0], kirjeldus, vahend, meede, f"{t}x{r}={skoor}"])
 
 st.header("3. OBJEKTI FOTO")
-foto = st.file_uploader("Vali pildifail", type=['jpg', 'jpeg', 'png'])
+foto = st.file_uploader("Vali pilt (JPG/PNG)", type=['jpg', 'jpeg', 'png'])
 
 # --- PDF GENEREERIMINE ---
 def genereeri_pdf():
@@ -150,5 +147,8 @@ def genereeri_pdf():
     return pdf.output()
 
 if st.button("🚀 GENEREERI RISKIANALÜÜS"):
-    pdf_res = genereeri_pdf()
-    st.download_button("📥 Laadi alla PDF", bytes(pdf_res), f"Riskianalyys_{aadress}.pdf", "application/pdf")
+    try:
+        pdf_res = genereeri_pdf()
+        st.download_button("📥 Laadi alla PDF", bytes(pdf_res), f"Riskianalyys_{aadress}.pdf", "application/pdf")
+    except Exception as e:
+        st.error(f"Viga PDF-i loomisel: {e}")
