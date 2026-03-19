@@ -4,73 +4,100 @@ import datetime
 from PIL import Image
 import io
 
-# --- PROFESSIONAALNE PDF KLASS ---
+# --- PDF KLASS MIS TOETAB EESTI KEELT ---
 class ArboristPDF(FPDF):
     def header(self):
-        # Helvetica on turvaline valik täpitähtede jaoks fpdf2-s
         self.set_font("Helvetica", 'B', 14)
         self.cell(0, 10, "TÖÖKOHA RISKIANALÜÜS JA OHUTUSPLAAN", ln=True, align='C')
         self.ln(5)
 
-# --- RAKENDUSE SEADISTUS ---
+# --- VALIKUD RIPPMEENÜÜDESSE ---
+toovahendid_valik = [
+    "Mootorsaag", "Käsisaag", "Ronimisvarustus", "Tõstuk", "Hakkur", 
+    "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Muu..."
+]
+
+meetmed_valik = [
+    "Ohuala tähistamine ja piiramine", 
+    "Kõrvaliste isikute eemaldamine",
+    "Isikukaitsevahendite (IKV) kasutamine", 
+    "Varustuse eelnev kontroll",
+    "Vintsimine ja suunamine", 
+    "Liikluse reguleerimine",
+    "Ohutu vahemaa hoidmine",
+    "Liinide väljalülitus/maandamine", 
+    "Muu..."
+]
+
+# --- RAKENDUSE LIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
+st.title("🌳 Professionaalne Riskianalüüs")
 
-st.title("🌳 Arboristi Riskianalüüsi Koostamine")
-
-# 1. ÜLDISED ANDMED
-st.header("1. ÜLDISED ANDMED")
+# 1. ÜLDISED ANDMED [cite: 2, 3]
+st.header("1. ÜLDISED ANDMED JA PÄÄSTE")
 c1, c2 = st.columns(2)
 with c1:
-    tooaandja = st.text_input("Tööandja (Ettevõte)", "")
-    vastutav = st.text_input("Vastutav isik / Koostaja", "")
+    tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
+    vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
     aadress = st.text_input("Objekti aadress", "")
 with c2:
-    omanik = st.text_input("Objekti omanik ja telefon", "")
-    haigla = st.text_input("Lähim haigla / EMO", "")
-    juhis = st.text_area("Päästetee juhis (kuidas abi kohale pääseb)", "")
+    omanik = st.text_input("Objekti omanik", "")
+    haigla = st.text_input("Lähim haigla/EMO", "PERH")
+    juhis = st.text_area("Päästetee juhis", "Ligipääs tänavalt, väravad avatud.")
 
 st.divider()
 
-# 2. RISKIDE HINDAMINE
+# 2. RISKIDE HINDAMINE 
 st.header("2. RISKIDE HINDAMINE")
 
-# Standardohud koos eeltäidetud soovitustega
-standard_ohud = [
-    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus/langetamine", "Mootorsaag, köied", "Ohuala tähistamine, kõrvaliste isikute eemaldamine", 2, 3],
-    ["Kõrgusest kukkumine", "Ronimine või tõstukitöö", "Ronimisvarustus, tõstuk", "IKV kandmine, varustuse kontroll, ankurpunkti kontroll", 2, 4],
-    ["Puu langemine ebasobivas suunas", "Tüve langetamine", "Vints, kiilud, suunavad köied", "Lõike tehnika valik, ohuala laiendamine, vintsimine", 2, 5],
-    ["Lõikevigastused", "Saega töötamine", "Mootorsaag, käsisaag", "Saekaitsepüksid, saesaapad, õige töövõte", 2, 3],
-    ["Elektrilöök", "Töö liinide läheduses", "Isolatsiooniga tööriistad", "Ohutu vahemaa hoidmine, liinide väljalülitus", 1, 5],
-    ["Kolmandad isikud / Liiklus", "Töö avalikus kohas", "Piirdelindid, koonused", "Liikluse reguleerimine, abiline maas", 2, 2]
+# Standardohud aluseks
+ohud_base = [
+    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus"],
+    ["Kõrgusest kukkumine", "Ronimine/tõstukitöö"],
+    ["Puu langemine ebasobivas suunas", "Tüve langetamine"],
+    ["Lõikevigastused", "Saega töötamine"],
+    ["Elektrilöök", "Töö liinide läheduses"],
+    ["Kolmandad isikud / Liiklus", "Töö avalikus kohas"]
 ]
 
 tabeli_andmed = []
-for i, oht in enumerate(standard_ohud):
+for i, oht in enumerate(ohud_base):
     with st.expander(f"📍 {oht[0]}", expanded=True):
-        col1, col2, col3, col4, col5 = st.columns([2, 2, 3, 0.7, 0.7])
-        with col1: kirjeldus = st.text_input("Kirjeldus", value=oht[1], key=f"k{i}")
-        with col2: vahend = st.text_input("Töövahend", value=oht[2], key=f"v{i}")
-        with col3: meede = st.text_area("Ennetusmeetmed", value=oht[3], key=f"m{i}")
-        with col4: t_val = st.number_input("T (1-5)", 1, 5, oht[4], key=f"t{i}")
-        with col5: r_val = st.number_input("R (1-5)", 1, 5, oht[5], key=f"r{i}")
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 0.7, 0.7])
         
-        skoor = t_val * r_val
-        tabeli_andmed.append([oht[0], kirjeldus, vahend, meede, f"{t_val}x{r_val}={skoor}"])
+        with col1:
+            kirjeldus = st.text_input("Ohu kirjeldus", value=oht[1], key=f"k{i}")
+        
+        with col2:
+            v_valik = st.selectbox("Töövahend", toovahendid_valik, key=f"v{i}")
+            vahend = v_valik
+            if v_valik == "Muu...":
+                vahend = st.text_input("Täpsusta vahendit", key=f"vc{i}")
+        
+        with col3:
+            m_valik = st.selectbox("Ennetusmeede", meetmed_valik, key=f"m{i}")
+            meede = m_valik
+            if m_valik == "Muu...":
+                meede = st.text_input("Täpsusta meedet", key=f"mc{i}")
+                
+        with col4: t = st.number_input("T", 1, 5, 2, key=f"t{i}")
+        with col5: r = st.number_input("R", 1, 5, 3, key=f"r{i}")
+        
+        skoor = t * r
+        tabeli_andmed.append([oht[0], kirjeldus, vahend, meede, f"{t}x{r}={skoor}"])
 
-st.divider()
 st.header("3. OBJEKTI FOTO")
-foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
+foto = st.file_uploader("Vali pildifail", type=['jpg', 'jpeg', 'png'])
 
 # --- PDF GENEREERIMINE ---
 def genereeri_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
     
-    # Punkt 1: Üldandmed
+    # Punkt 1: Üldinfo
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "1. ÜLDISED ANDMED JA PÄÄSTEINFO", ln=True)
     pdf.set_font("Helvetica", '', 10)
-    
     with pdf.table(col_widths=(45, 145), border=1) as table:
         table.row(["Tööandja", tooaandja])
         table.row(["Vastutav isik", vastutav])
@@ -86,10 +113,9 @@ def genereeri_pdf():
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "2. RISKIDE HINDAMISE MAATRIKS", ln=True)
     pdf.set_font("Helvetica", '', 8)
-    
     with pdf.table(col_widths=(35, 35, 35, 65, 20), border=1) as table:
         pdf.set_font("Helvetica", 'B', 8)
-        table.row(["Ohutegur", "Kirjeldus", "Töövahend", "Ennetusmeetmed", "Skoor"])
+        table.row(["Ohutegur", "Kirjeldus", "Töövahend", "Ennetusmeede", "Skoor"])
         pdf.set_font("Helvetica", '', 8)
         for rida in tabeli_andmed:
             table.row(rida)
@@ -103,7 +129,7 @@ def genereeri_pdf():
         table.row(["T (Tõenäosus)", "R (Raskusaste / Tagajärg)"])
         table.row(["1-Väga väike; 2-Väike; 3-Keskmine; 4-Suur; 5-Väga suur", "1-Ebaoluline; 2-Kerge; 3-Keskmine; 4-Raske; 5-Surm"])
     
-    pdf.ln(4)
+    pdf.ln(5)
     pdf.cell(0, 5, "Riskitase: 1-4 Madal; 5-12 Keskmine; 15-25 Kõrge (TÖÖ KEELATUD!)", ln=True)
 
     # Punkt 4: Foto
@@ -112,7 +138,6 @@ def genereeri_pdf():
         pdf.set_font("Helvetica", 'B', 11)
         pdf.cell(0, 10, "3. OBJEKTI FOTO", ln=True)
         img = Image.open(foto)
-        # Muudame pildi suurust, et see mahuks lehele
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         pdf.image(img_byte_arr, x=15, y=30, w=180)
@@ -124,9 +149,6 @@ def genereeri_pdf():
     
     return pdf.output()
 
-if st.button("✅ GENEREERI LÕPLIK PDF"):
-    try:
-        pdf_valmis = genereeri_pdf()
-        st.download_button("📥 Laadi alla korrektne PDF", bytes(pdf_valmis), f"Riskianalyys_{aadress}.pdf", "application/pdf")
-    except Exception as e:
-        st.error(f"Viga PDF-i loomisel: {e}")
+if st.button("🚀 GENEREERI RISKIANALÜÜS"):
+    pdf_res = genereeri_pdf()
+    st.download_button("📥 Laadi alla PDF", bytes(pdf_res), f"Riskianalyys_{aadress}.pdf", "application/pdf")
