@@ -14,15 +14,18 @@ class ArboristPDF(FPDF):
 # --- VALIKUD RIPPMEENÜÜDESSE ---
 toovahendid_valik = [
     "Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", 
-    "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Muu..."
+    "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", 
+    "Viskeliin ja raskus", "Plokid ja rigging-köied", "Muu..."
 ]
 
 meetmed_valik = [
     "Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine",
     "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll",
     "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", 
-    "Töö peatamine ebasobiva ilmaga", "Muu..."
+    "Töö peatamine ebasobiva ilmaga", "Liikluse reguleerimine", "Muu..."
 ]
+
+t_r_valikud = [1, 2, 3, 4, 5]
 
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
 st.title("🌳 Professionaalne Riskianalüüs")
@@ -44,22 +47,21 @@ st.divider()
 # 2. RISKIDE HINDAMINE
 st.header("2. RISKIDE HINDAMINE (T x R)")
 
-# Põhjalik nimekiri standardohtudest
 ohud_base = [
-    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine ja piiramine"],
-    ["Kõrgusest kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "Isikukaitsevahendite (IKV) kandmine"],
-    ["Puu langemine vales suunas", "Tüve langetamine", "Vints", "Vintsimine ja suunamine"],
-    ["Ilmastikuolud", "Tuul, äike, jää", "Muu...", "Töö peatamine ebasobiva ilmaga"],
-    ["Lõikevigastused", "Saega töötamine", "Mootorsaag", "Isikukaitsevahendite (IKV) kandmine"],
-    ["Elektrilöök", "Õhuliinid", "Muu...", "Ohutu vahemaa hoidmine"],
-    ["Kolmandad isikud / Liiklus", "Avalik ala", "Piirdelint/koonused", "Kõrvaliste isikute eemaldamine"],
-    ["Müra ja vibratsioon", "Seadmete kasutus", "Hakkur", "Isikukaitsevahendite (IKV) kandmine"]
+    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine ja piiramine", 2, 2],
+    ["Kõrgusest kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "Isikukaitsevahendite (IKV) kandmine", 1, 3],
+    ["Puu langemine vales suunas", "Tüve langetamine", "Vints", "Vintsimine ja suunamine", 1, 4],
+    ["Ilmastikuolud", "Tuul, äike, jää", "Muu...", "Töö peatamine ebasobiva ilmaga", 1, 2],
+    ["Lõikevigastused", "Saega töötamine", "Mootorsaag", "Isikukaitsevahendite (IKV) kandmine", 2, 3],
+    ["Elektrilöök", "Õhuliinid", "Muu...", "Ohutu vahemaa hoidmine", 1, 5],
+    ["Kolmandad isikud / Liiklus", "Avalik ala", "Piirdelint/koonused", "Kõrvaliste isikute eemaldamine", 2, 2],
+    ["Müra ja vibratsioon", "Seadmete kasutus", "Hakkur", "Isikukaitsevahendite (IKV) kandmine", 3, 2]
 ]
 
 tabeli_andmed = []
 for i, oht in enumerate(ohud_base):
-    with st.expander(f"📍 {oht[0]}", expanded=False):
-        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 0.7, 0.7])
+    with st.expander(f"📍 {oht[0]}", expanded=True):
+        col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 0.6, 0.6])
         
         with col1:
             kirj = st.text_input("Kirjeldus", value=oht[1], key=f"k{i}")
@@ -72,8 +74,10 @@ for i, oht in enumerate(ohud_base):
             m_val = st.selectbox("Ennetusmeede", meetmed_valik, index=meetmed_valik.index(oht[3]) if oht[3] in meetmed_valik else 0, key=f"m{i}")
             meede = m_val if m_val != "Muu..." else st.text_input("Täpsusta meedet", key=f"mc{i}")
             
-        with col4: t = st.number_input("T", 1, 5, 2, key=f"t{i}")
-        with col5: r = st.number_input("R", 1, 5, 2, key=f"r{i}")
+        with col4: 
+            t = st.selectbox("T", t_r_valikud, index=t_r_valikud.index(oht[4]), key=f"t{i}")
+        with col5: 
+            r = st.selectbox("R", t_r_valikud, index=t_r_valikud.index(oht[5]), key=f"r{i}")
         
         skoor = t * r
         tase = "MADAL" if skoor <= 4 else "KESKMINE" if skoor <= 12 else "KÕRGE"
@@ -111,7 +115,7 @@ def genereeri_pdf():
         for rida in tabeli_andmed:
             table.row(rida)
 
-    # 3. Selgitused ja allkirjad
+    # 3. Selgitused
     pdf.ln(8)
     pdf.set_font("helvetica", 'B', 10)
     pdf.cell(0, 8, "RISKIHINDAMISE SELGITUSED", ln=True)
@@ -122,7 +126,7 @@ def genereeri_pdf():
     
     pdf.ln(4)
     pdf.set_font("helvetica", 'I', 8)
-    pdf.cell(0, 5, "Hinnang: 1-4 Madal; 5-12 Keskmine; 15-25 Kõrge (KEELATUD!)", ln=True)
+    pdf.cell(0, 5, "Hinnang: 1-4 Madal; 5-12 Keskmine; 15-25 Kõrge (TÖÖ KEELATUD!)", ln=True)
 
     pdf.ln(10)
     pdf.set_font("helvetica", 'B', 9)
