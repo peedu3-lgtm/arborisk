@@ -4,18 +4,16 @@ import datetime
 from PIL import Image
 import io
 
-# Proovime aktiveerida HEIC toe
+# HEIC failide toe aktiveerimine (vajab: pip install pillow-heif)
 try:
     from pillow_heif import register_heif_opener
     register_heif_opener()
-    HEIC_SUPPORT = True
 except ImportError:
-    HEIC_SUPPORT = False
+    pass
 
 # --- TÄIUSTATUD PDF KLASS ---
 class ArboristPDF(FPDF):
     def header(self):
-        # Kasutame standardfonti, aga puhastatud tekstiga
         self.set_font("Helvetica", 'B', 14)
         self.cell(0, 10, "TOOKOHA RISKIANALUUS JA OHUTUSPLAAN", ln=True, align='C')
         self.ln(5)
@@ -32,7 +30,7 @@ class ArboristPDF(FPDF):
         self.cell(135, 8, self.clean_text(value), 1, 1, 'L')
 
     def clean_text(self, text):
-        """Asendab täpitähed sarnaste märkidega, et vältida vigu Helvetica fondis."""
+        """Asendab täpitähed, et vältida vigu standardse Helvetica fondiga."""
         if not text: return ""
         rep = {'ä':'a','ö':'o','ü':'u','õ':'o','Ä':'A','Ö':'O','Ü':'U', 'Õ':'O', 'ž':'z', 'š':'s', 'Ž':'Z', 'Š':'S'}
         for k, v in rep.items():
@@ -52,9 +50,10 @@ st.title("🌳 Arborisk Pro")
 with st.container():
     st.info("📋 Objekti ja osapoolte andmed")
     ettevote = st.text_input("Tööandja / Ettevõte", "Framiter OÜ")
-    vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
-    aadress = st.text_input("Töö aadress", "Jaska-Kuusiku")
-    omanik = st.text_input("Objekti omanik / Klient", "") # TAGASI LISATUD
+    vastutav = st.text_input("Tööjuht / Vastutav isik", "Ivar Peedu")
+    aadress = st.text_input("Töö teostamise aadress", "Jaska-Kuusiku")
+    # --- OMANIKU RIDA LISATUD SIIN ---
+    omanik_info = st.text_input("Objekti omanik / Klient (Nimi ja Tel)", "") 
     kuupaev = datetime.date.today()
 
 with st.expander("🚑 Esmaabi ja Päästeinfo"):
@@ -64,95 +63,113 @@ with st.expander("🚑 Esmaabi ja Päästeinfo"):
 
 st.divider()
 
-# --- 2. RISKID ---
-st.subheader("⚠️ Riskid")
-seadmed = ["Mootorsaag", "Tõstuk", "Hakkur", "Vints", "Ronimisvarustus", "Muu..."]
-meetmed = ["Ohuala piiramine", "IKV kandmine", "Liikluse reguleerimine", "Muu..."]
-ohud = ["Kukkuvad oksad", "Kõrgus", "Elekter", "Liiklus", "Ilmastik"]
+# --- 2. RISKIDE HINDAMINE ---
+st.subheader("⚠️ Ohutegurite hindamine")
+
+seadmete_valik = ["Mootorsaag", "Akusaag", "Tõstuk", "Vints", "Hakkur", "Kännufrees", "Kraana", "Ronimisvarustus", "Käsisaag", "Muu..."]
+meetmete_valik = ["Ohuala tähistamine lindiga", "Kiivri ja IKV kandmine", "Liikluse reguleerija", "Elektriliini pinge väljalülitus", "Kõrvaliste isikute eemaldamine", "Muu..."]
+ohud_list = ["Kukkuvad oksad", "Kõrgusest kukkumine", "Lõikevigastused", "Elektrilöök", "Kolmandad isikud", "Ilmastik", "Müra/Vibratsioon"]
 
 andmed = []
-for oht in ohud:
-    with st.expander(f"📍 {oht}"):
+for oht in ohud_list:
+    with st.expander(f"📍 OHT: {oht}", expanded=False):
         c1, c2 = st.columns(2)
-        t = c1.slider("T", 1, 5, 1, key=oht+"t")
-        r = c2.slider("R", 1, 5, 1, key=oht+"r")
+        with c1: t = st.select_slider(f"Tõenäosus (T)", options=[1, 2, 3, 4, 5], key=oht+"t")
+        with c2: r = st.select_slider(f"Tagajärg (R)", options=[1, 2, 3, 4, 5], key=oht+"r")
         
-        märkus = st.text_input("Märkus", key=oht+"m")
+        märkus = st.text_input("Ohu täpsustus", key=oht+"m")
         
-        # Dünaamiline tööriistade valik
-        s_valik = st.multiselect("Tööriistad", seadmed, key=oht+"s")
-        if "Muu..." in s_valik:
-            s_muu = st.text_input("Täpsusta tööriista", key=oht+"sm")
-            s_valik = [x if x != "Muu..." else s_muu for x in s_valik]
+        # --- MUU VALIKU LOOGIKA TÖÖRIISTADELE ---
+        s_sel = st.multiselect("Töövahendid", seadmete_valik, key=oht+"s")
+        if "Muu..." in s_sel:
+            s_muu = st.text_input("Lisa muu töövahend", key=oht+"s_muu")
+            s_sel = [x if x != "Muu..." else s_muu for x in s_sel]
             
-        # Dünaamiline meetmete valik
-        m_valik = st.multiselect("Meetmed", meetmed, key=oht+"me")
-        if "Muu..." in m_valik:
-            m_muu = st.text_input("Täpsusta meedet", key=oht+"mm")
-            m_valik = [x if x != "Muu..." else m_muu for x in m_valik]
+        # --- MUU VALIKU LOOGIKA MEETMETELE ---
+        m_sel = st.multiselect("Meetmed", meetmete_valik, key=oht+"meede")
+        if "Muu..." in m_sel:
+            m_muu = st.text_input("Lisa muu meede", key=oht+"m_muu")
+            m_sel = [x if x != "Muu..." else m_muu for x in m_sel]
             
-        andmed.append({"oht": oht, "märkus": märkus, "s": ", ".join(s_valik), "m": ", ".join(m_valik), "tr": t*r})
+        andmed.append({
+            "oht": oht, 
+            "märkus": märkus, 
+            "seade": ", ".join(s_sel), 
+            "meede": ", ".join(m_sel), 
+            "t": t, "r": r, "skoor": t*r
+        })
 
 st.subheader("📸 Foto")
-foto = st.file_uploader("Lisa pilt (JPG, PNG, HEIC)", type=['jpg', 'jpeg', 'png', 'heic'])
+foto = st.file_uploader("Lisa foto (JPG, PNG, HEIC)", type=['jpg', 'jpeg', 'png', 'heic'])
 
-# --- 3. PDF GENEREERIMINE ---
+# --- 3. PDF FUNKTSIOON ---
 def generate_pdf():
     pdf = ArboristPDF()
+    pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
     
-    # Andmed
+    # 1. Üldinfo tabel
     pdf.section_title("1. ULDISED ANDMED")
-    pdf.draw_info_row("Ettevote", ettevote)
-    pdf.draw_info_row("Vastutav", vastutav)
-    pdf.draw_info_row("Aadress", aadress)
-    pdf.draw_info_row("Omanik", omanik) # LISATUD PDF-i
+    pdf.draw_info_row("Tooaandja", ettevote)
+    pdf.draw_info_row("Vastutav isik", vastutav)
+    pdf.draw_info_row("Objekti aadress", aadress)
+    # --- OMANIKU RIDA LISATUD PDF-I ---
+    pdf.draw_info_row("Objekti omanik", omanik_info) 
     pdf.draw_info_row("Kuupaev", str(kuupaev))
     pdf.ln(5)
     
-    # Tabeli päis
-    pdf.section_title("2. RISKID")
+    # 2. Esmaabi
+    pdf.section_title("2. ESMAABI JA PAASTEINFO")
+    pdf.draw_info_row("Hadaabi", hadaabi)
+    pdf.draw_info_row("Haigla", haigla)
+    pdf.draw_info_row("Paastetee juhis", paaste_info)
+    pdf.ln(5)
+
+    # 3. Riskide tabel
+    pdf.section_title("3. RISKIDE HINDAMINE")
     pdf.set_font("Helvetica", 'B', 8)
-    w = [40, 50, 40, 40, 20]
-    päis = ["Oht", "Markus", "Vahend", "Meede", "Skoor"]
-    for i in range(len(päis)):
-        pdf.cell(w[i], 8, päis[i], 1, 0, 'C', True)
+    pdf.set_fill_color(240, 240, 240)
+    w = [40, 45, 35, 45, 25]
+    pealkirjad = ["Ohutegur", "Kirjeldus", "Toovahend", "Meetmed", "Skoor (TxR)"]
+    for i in range(len(pealkirjad)):
+        pdf.cell(w[i], 8, pealkirjad[i], 1, 0, 'C', True)
     pdf.ln()
 
-    # Tabeli sisu
     pdf.set_font("Helvetica", '', 7)
     for d in andmed:
-        if pdf.get_y() > 250: pdf.add_page()
-        cur_y = pdf.get_y()
-        
+        if pdf.get_y() > 240: pdf.add_page()
+        start_y = pdf.get_y()
+
+        # Multi-cell lahtrite kõrguse jälgimine
         pdf.multi_cell(w[0], 6, pdf.clean_text(d['oht']), 1)
-        h = pdf.get_y() - cur_y
+        h1 = pdf.get_y() - start_y
         
-        pdf.set_xy(10 + w[0], cur_y)
+        pdf.set_xy(10 + w[0], start_y)
         pdf.multi_cell(w[1], 6, pdf.clean_text(d['märkus']), 1)
-        h = max(h, pdf.get_y() - cur_y)
+        h2 = pdf.get_y() - start_y
         
-        pdf.set_xy(10 + w[0] + w[1], cur_y)
-        pdf.multi_cell(w[2], 6, pdf.clean_text(d['s']), 1)
-        h = max(h, pdf.get_y() - cur_y)
+        pdf.set_xy(10 + w[0] + w[1], start_y)
+        pdf.multi_cell(w[2], 6, pdf.clean_text(d['seade']), 1)
+        h3 = pdf.get_y() - start_y
         
-        pdf.set_xy(10 + w[0] + w[1] + w[2], cur_y)
-        pdf.multi_cell(w[3], 6, pdf.clean_text(d['m']), 1)
-        h = max(h, pdf.get_y() - cur_y)
+        pdf.set_xy(10 + w[0] + w[1] + w[2], start_y)
+        pdf.multi_cell(w[3], 6, pdf.clean_text(d['meede']), 1)
+        h4 = pdf.get_y() - start_y
         
-        pdf.set_xy(10 + w[0] + w[1] + w[2] + w[3], cur_y)
-        pdf.cell(w[4], h, str(d['tr']), 1, 1, 'C')
-        pdf.set_y(cur_y + h)
+        max_h = max(h1, h2, h3, h4)
+        pdf.set_xy(10 + w[0] + w[1] + w[2] + w[3], start_y)
+        pdf.cell(w[4], max_h, str(d['skoor']), 1, 1, 'C')
+        pdf.set_y(start_y + max_h)
 
     # Allkirjad
     pdf.ln(10)
-    pdf.cell(90, 10, "Koostaja: ________________", 0)
-    pdf.cell(90, 10, "Tootaja: ________________", 0, 1)
+    pdf.cell(95, 10, "Koostaja allkiri: ____________________", 0, 0, 'L')
+    pdf.cell(95, 10, "Tootaja allkiri: ____________________", 0, 1, 'L')
 
-    # Pilt
+    # Foto lisamine eraldi lehele
     if foto:
         pdf.add_page()
-        pdf.section_title("OBJEKTI FOTO")
+        pdf.section_title("LISA: OBJEKTI FOTO")
         img = Image.open(foto)
         if img.mode in ("RGBA", "P"): img = img.convert("RGB")
         img_io = io.BytesIO()
@@ -160,12 +177,14 @@ def generate_pdf():
         img_io.seek(0)
         pdf.image(img_io, x=10, y=30, w=190)
 
-    res = pdf.output()
-    return bytes(res) if isinstance(res, (bytearray, bytes)) else res.encode('latin-1', errors='replace')
+    out = pdf.output()
+    return bytes(out) if isinstance(out, (bytearray, bytes)) else out.encode('latin-1', errors='replace')
 
+# --- NUPUD ---
 if st.button("🚀 GENEREERI PDF", use_container_width=True):
     try:
-        final_pdf = generate_pdf()
-        st.download_button("📥 LAADI ALLA", data=final_pdf, file_name=f"Risk_{aadress}.pdf", mime="application/pdf")
+        pdf_bytes = generate_pdf()
+        st.success("Dokument valmis!")
+        st.download_button("📥 LAADI ALLA", data=pdf_bytes, file_name=f"Riskianalyys_{aadress}.pdf", mime="application/pdf", use_container_width=True)
     except Exception as e:
         st.error(f"Viga: {e}")
