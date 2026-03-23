@@ -28,7 +28,6 @@ toovahendid_valik = [
     "Viskeliin ja raskus", "Plokid ja rigging-köied", "Muu..."
 ]
 
-# LISATUD: Esmaabi ja allergiarohud meetmete nimekirja
 meetmed_valik = [
     "Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine",
     "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll",
@@ -40,7 +39,6 @@ meetmed_valik = [
 
 t_r_valikud = [1, 2, 3, 4, 5]
 
-# KÕIK OHUD KOOS ESMAABI UUENDUSTEGA
 ohud_base = [
     ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine ja piiramine", 2, 4],
     ["Kõrgusest kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "Isikukaitsevahendite (IKV) kandmine", 1, 5],
@@ -63,7 +61,7 @@ class ArboristPDF(FPDF):
 
 # --- 4. KASUTAJALIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v4.1")
+st.title("🌳 Arborisk Pro v4.2")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
@@ -73,6 +71,8 @@ with col_a:
     tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
     vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
     aadress = st.text_input("Objekti aadress", "")
+    omanik_nimi = st.text_input("Objekti omaniku nimi", "")
+    omanik_kontakt = st.text_input("Omaniku kontakt (tel/e-post)", "")
     kellaaeg = st.text_input("Töö algusaeg", datetime.datetime.now().strftime("%H:%M"))
 
 with col_b:
@@ -124,7 +124,9 @@ def loe_pdf():
     pdf.set_font("helvetica", '', 10)
     with pdf.table(col_widths=(45, 145)) as table:
         table.row(["Tooandja", tooaandja])
-        table.row(["Vastutav / Aadress", f"{vastutav} / {aadress}"])
+        table.row(["Vastutav isik", vastutav])
+        table.row(["Objekti aadress", aadress])
+        table.row(["Omanik", f"{omanik_nimi} ({omanik_kontakt})"])
         table.row(["Ilm / Tuul", f"{ilm_tekst} / {tuul} m/s"])
         table.row(["Kuupaev / Kell", f"{datetime.date.today()} / {kellaaeg}"])
 
