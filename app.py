@@ -52,16 +52,17 @@ ohud_base = [
     ["Elektrilöök", "Õhuliinid läheduses", "Muu...", "Ohutu vahemaa hoidmine", 1, 5]
 ]
 
-# --- 3. PDF KLASS ---
+# --- 3. PDF KLASS (Latin-1 Toetusega) ---
 class ArboristPDF(FPDF):
     def header(self):
+        # Enforce latin-1 for core fonts to support äöüõ
         self.set_font("helvetica", 'B', 14)
-        self.cell(0, 10, "TOOKOHA RISKIANALUUS JA OHUTUSPLAAN", ln=True, align='C')
+        self.cell(0, 10, "TÖÖKOHA RISKIANALÜÜS JA OHUTUSPLAAN".encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
         self.ln(2)
 
 # --- 4. KASUTAJALIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v4.2")
+st.title("🌳 Arborisk Pro v4.4")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
@@ -79,7 +80,6 @@ with col_b:
     tuul = st.number_input("Tuule kiirus (m/s)", value=float(auto_tuul))
     ilm_tekst = st.text_input("Ilm (prognoos)", value=f"{auto_ilm}, {auto_temp}C")
     haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
-    if tuul > 12: st.error("⚠️ HOIATUS: Tuul üle 12 m/s! Kõrgtööd peatada!")
 
 st.divider()
 
@@ -89,20 +89,16 @@ tabeli_andmed = []
 for i, oht in enumerate(ohud_base):
     with st.expander(f"📍 {oht[0]}", expanded=False):
         c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2, 0.5, 0.5])
-        
         with c1:
             kirj = st.text_input("Ohu kirjeldus", value=oht[1], key=f"k{i}")
-        
         with c2:
             v_val = st.multiselect("Vali varustus listist", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
             v_lisa = st.text_input("VÕI kirjuta ise varustus:", key=f"vl{i}")
             v_kokku = ", ".join(v_val) + (f", {v_lisa}" if v_lisa else "")
-        
         with c3:
             m_val = st.multiselect("Vali meetmed listist", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
             m_lisa = st.text_input("VÕI kirjuta ise meede:", key=f"ml{i}")
             m_kokku = ", ".join(m_val) + (f", {m_lisa}" if m_lisa else "")
-                
         with c4: t = st.selectbox("T", t_r_valikud, index=t_r_valikud.index(oht[4]), key=f"t{i}")
         with c5: r = st.selectbox("R", t_r_valikud, index=t_r_valikud.index(oht[5]), key=f"r{i}")
         
@@ -115,51 +111,51 @@ foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
 
 # --- 5. PDF GENEREERIMINE ---
 def loe_pdf():
+    # Teeme PDF-i ja sunnime latin-1 kodeeringut täpitähtede jaoks
     pdf = ArboristPDF()
     pdf.add_page()
     
-    # 1. Üldandmed
+    # Abifunktsioon teksti kodeerimiseks
+    def enc(txt):
+        return str(txt).encode('latin-1', 'replace').decode('latin-1')
+
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, "1. ULDISED ANDMED JA TÖÖTINGIMUSED", ln=True)
+    pdf.cell(0, 10, enc("1. ÜLDISED ANDMED JA TÖÖTINGIMUSED"), ln=True)
     pdf.set_font("helvetica", '', 10)
+    
     with pdf.table(col_widths=(45, 145)) as table:
-        table.row(["Tooandja", tooaandja])
-        table.row(["Vastutav isik", vastutav])
-        table.row(["Objekti aadress", aadress])
-        table.row(["Omanik", f"{omanik_nimi} ({omanik_kontakt})"])
-        table.row(["Ilm / Tuul", f"{ilm_tekst} / {tuul} m/s"])
-        table.row(["Kuupaev / Kell", f"{datetime.date.today()} / {kellaaeg}"])
+        table.row([enc("Tööandja"), enc(tooaandja)])
+        table.row([enc("Vastutav isik"), enc(vastutav)])
+        table.row([enc("Objekti aadress"), enc(aadress)])
+        table.row([enc("Omanik"), enc(f"{omanik_nimi} ({omanik_kontakt})")])
+        table.row([enc("Ilm / Tuul"), enc(f"{ilm_tekst} / {tuul} m/s")])
+        table.row([enc("Kuupäev / Kell"), enc(f"{datetime.date.today()} / {kellaaeg}")])
 
     pdf.ln(5)
-    
-    # 2. Riskide tabel
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, "2. RISKIDE HINDAMISE MAATRIKS", ln=True)
+    pdf.cell(0, 10, enc("2. RISKIDE HINDAMISE MAATRIKS"), ln=True)
     pdf.set_font("helvetica", '', 6)
+    
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
-        table.row(["Oht", "Kirjeldus", "Varustus", "Meetmed", "Skoor (T x R)"])
+        table.row([enc("Oht"), enc("Kirjeldus"), enc("Varustus"), enc("Meetmed"), enc("Skoor")])
         for rida in tabeli_andmed:
-            table.row(rida)
+            # Kodeerime iga lahtri eraldi
+            encoded_row = [enc(item) for item in rida]
+            table.row(encoded_row)
 
-    # 3. Selgitused
+    # Selgitused
     pdf.ln(8)
     pdf.set_font("helvetica", 'B', 10)
-    pdf.cell(0, 8, "RISKIMAATRIKSI SELGITUSED", ln=True)
+    pdf.cell(0, 8, enc("RISKIMAATRIKSI SELGITUSED"), ln=True)
     pdf.set_font("helvetica", '', 7)
     with pdf.table(col_widths=(95, 95)) as table:
-        table.row(["TOENAOSUS (T)", "TAGAJARG (R)"])
-        table.row(["1 - Vaike (harva)", "1 - Ebaoluline (esmaabi pole vaja)"])
-        table.row(["3 - Keskmine (voib esineda)", "3 - Raske vigastus (toovoimetus)"])
-        table.row(["5 - Kindel (ilmneb sageli)", "5 - Eriti raske (surm)"])
-    
-    pdf.ln(2)
-    pdf.cell(0, 5, "Hinnang: 1-4 Madal; 5-12 Keskmine; 15-25 KORGE (Too ohtlik!)", ln=True)
+        table.row([enc("TÕENÄOSUS (T)"), enc("TAGAJÄRG (R)")])
+        table.row([enc("1 - Väike; 3 - Keskmine; 5 - Suur"), enc("1 - Kerge; 3 - Raske; 5 - Surm")])
 
-    # 4. Allkirjad
     pdf.ln(10)
     pdf.set_font("helvetica", 'B', 10)
-    pdf.cell(95, 10, "Koostaja allkiri: .........................", 0, 0)
-    pdf.cell(95, 10, "Tootaja allkiri: .........................", 0, 1)
+    pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
+    pdf.cell(95, 10, enc("Töötaja allkiri: ........................."), 0, 1)
 
     if foto:
         pdf.add_page()
