@@ -6,7 +6,7 @@ from PIL import Image
 import io
 
 # --- 1. ILMAFUNKTSIOON (Open-Meteo) ---
-def get_weather(lat=58.5953, lon=25.0136): # Eesti keskpunkt
+def get_weather(lat=58.5953, lon=25.0136):
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms"
         response = requests.get(url, timeout=5)
@@ -25,28 +25,33 @@ def get_weather(lat=58.5953, lon=25.0136): # Eesti keskpunkt
 toovahendid_valik = [
     "Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", 
     "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", 
-    "Viskeliin ja raskus", "Plokid ja rigging-köied"
+    "Viskeliin ja raskus", "Plokid ja rigging-köied", "Muu..."
 ]
 
+# LISATUD: Esmaabi ja allergiarohud meetmete nimekirja
 meetmed_valik = [
     "Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine",
     "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll",
     "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", 
     "Töö peatamine ebasobiva ilmaga", "Antivibratsioon-kindad",
-    "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate"
+    "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate",
+    "Esmaabikomplekt", "Allergiaravimid (antihistamiinid)", "Muu..."
 ]
 
 t_r_valikud = [1, 2, 3, 4, 5]
 
+# KÕIK OHUD KOOS ESMAABI UUENDUSTEGA
 ohud_base = [
     ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine ja piiramine", 2, 4],
     ["Kõrgusest kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "Isikukaitsevahendite (IKV) kandmine", 1, 5],
     ["Puu langemine vales suunas", "Tüve langetamine", "Vints", "Vintsimine ja suunamine", 1, 5],
-    ["Müra ja Vibratsioon", "Tervisekahjustus", "Mootorsaag", "Kõrvaklapid", 3, 2],
-    ["Kõrvalised isikud / Autod", "Vigastused ja varaline kahju", "Piirdelint/koonused", "Ohuala tähistamine ja piiramine", 2, 3],
-    ["Võõras vara (aiad, katused)", "Löökkahjustused", "Plokid ja rigging-köied", "Vara kaitse/kate", 2, 3],
-    ["Bioloogilised ohud (herilased, puugid)", "Allergia/haigus", "Muu", "Esmaabikomplekt", 2, 2],
-    ["Elektrilöök", "Õhuliinid", "Muu", "Ohutu vahemaa hoidmine", 1, 5]
+    ["Müra ja Vibratsioon", "Tervisekahjustus (kuulmine/liigesed)", "Mootorsaag", "Kõrvaklapid", 3, 2],
+    ["Kõrvalised isikud / Jalakäijad", "Vigastusoht ohualas", "Piirdelint/koonused", "Kõrvaliste isikute eemaldamine", 2, 3],
+    ["Sõidukid (autod)", "Varaline kahju / pihtasaamine", "Piirdelint/koonused", "Sõidukite ümberparkimine", 2, 3],
+    ["Võõras vara (aiad, katused)", "Löökkahjustused / purunemine", "Plokid ja rigging-köied", "Vara kaitse/kate", 2, 3],
+    ["Herilased / Mesilased", "Nõelamine (allergiline šokk)", "Muu...", "Allergiaravimid (antihistamiinid)", 2, 3],
+    ["Puugid / Lyme tõbi", "Bioloogiline oht", "Muu...", "Esmaabikomplekt", 3, 2],
+    ["Elektrilöök", "Õhuliinid läheduses", "Muu...", "Ohutu vahemaa hoidmine", 1, 5]
 ]
 
 # --- 3. PDF KLASS ---
@@ -58,7 +63,7 @@ class ArboristPDF(FPDF):
 
 # --- 4. KASUTAJALIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v3.5")
+st.title("🌳 Arborisk Pro v4.1")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
@@ -68,12 +73,13 @@ with col_a:
     tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
     vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
     aadress = st.text_input("Objekti aadress", "")
-    kellaaeg = st.text_input("Aeg", datetime.datetime.now().strftime("%H:%M"))
+    kellaaeg = st.text_input("Töö algusaeg", datetime.datetime.now().strftime("%H:%M"))
 
 with col_b:
     tuul = st.number_input("Tuule kiirus (m/s)", value=float(auto_tuul))
     ilm_tekst = st.text_input("Ilm (prognoos)", value=f"{auto_ilm}, {auto_temp}C")
     haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
+    if tuul > 12: st.error("⚠️ HOIATUS: Tuul üle 12 m/s! Kõrgtööd peatada!")
 
 st.divider()
 
@@ -88,20 +94,14 @@ for i, oht in enumerate(ohud_base):
             kirj = st.text_input("Ohu kirjeldus", value=oht[1], key=f"k{i}")
         
         with c2:
-            v_val = st.multiselect("Vali varustus", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
-            v_lisa = st.text_input("VÕI kirjuta ise varustus siia:", key=f"vl{i}", placeholder="nt. Teleskoopnuga, reha")
-            # Ühendame valitud ja juurde kirjutatud asjad
-            v_kokku = ", ".join(v_val)
-            if v_lisa:
-                v_kokku = (v_kokku + ", " + v_lisa) if v_kokku else v_lisa
+            v_val = st.multiselect("Vali varustus listist", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
+            v_lisa = st.text_input("VÕI kirjuta ise varustus:", key=f"vl{i}")
+            v_kokku = ", ".join(v_val) + (f", {v_lisa}" if v_lisa else "")
         
         with c3:
-            m_val = st.multiselect("Vali meetmed", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
-            m_lisa = st.text_input("VÕI kirjuta ise meede siia:", key=f"ml{i}", placeholder="nt. Naabri teavitamine")
-            # Ühendame valitud ja juurde kirjutatud meetmed
-            m_kokku = ", ".join(m_val)
-            if m_lisa:
-                m_kokku = (m_kokku + ", " + m_lisa) if m_kokku else m_lisa
+            m_val = st.multiselect("Vali meetmed listist", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
+            m_lisa = st.text_input("VÕI kirjuta ise meede:", key=f"ml{i}")
+            m_kokku = ", ".join(m_val) + (f", {m_lisa}" if m_lisa else "")
                 
         with c4: t = st.selectbox("T", t_r_valikud, index=t_r_valikud.index(oht[4]), key=f"t{i}")
         with c5: r = st.selectbox("R", t_r_valikud, index=t_r_valikud.index(oht[5]), key=f"r{i}")
@@ -117,8 +117,10 @@ foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
 def loe_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
+    
+    # 1. Üldandmed
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, "1. ULDISED ANDMED", ln=True)
+    pdf.cell(0, 10, "1. ULDISED ANDMED JA TÖÖTINGIMUSED", ln=True)
     pdf.set_font("helvetica", '', 10)
     with pdf.table(col_widths=(45, 145)) as table:
         table.row(["Tooandja", tooaandja])
@@ -127,17 +129,31 @@ def loe_pdf():
         table.row(["Kuupaev / Kell", f"{datetime.date.today()} / {kellaaeg}"])
 
     pdf.ln(5)
+    
+    # 2. Riskide tabel
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, "2. RISKIDE TABEL", ln=True)
+    pdf.cell(0, 10, "2. RISKIDE HINDAMISE MAATRIKS", ln=True)
     pdf.set_font("helvetica", '', 6)
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
-        table.row(["Oht", "Kirjeldus", "Varustus", "Meetmed", "Skoor"])
-        for rida in tabeli_andmed: table.row(rida)
+        table.row(["Oht", "Kirjeldus", "Varustus", "Meetmed", "Skoor (T x R)"])
+        for rida in tabeli_andmed:
+            table.row(rida)
 
-    # Selgitused ja allkirjad
-    pdf.ln(10)
-    pdf.set_font("helvetica", 'I', 8)
-    pdf.multi_cell(0, 5, "Skoor 1-4: Madal; 5-12: Keskmine; 15-25: KORGE (Too ohtlik!)")
+    # 3. Selgitused
+    pdf.ln(8)
+    pdf.set_font("helvetica", 'B', 10)
+    pdf.cell(0, 8, "RISKIMAATRIKSI SELGITUSED", ln=True)
+    pdf.set_font("helvetica", '', 7)
+    with pdf.table(col_widths=(95, 95)) as table:
+        table.row(["TOENAOSUS (T)", "TAGAJARG (R)"])
+        table.row(["1 - Vaike (harva)", "1 - Ebaoluline (esmaabi pole vaja)"])
+        table.row(["3 - Keskmine (voib esineda)", "3 - Raske vigastus (toovoimetus)"])
+        table.row(["5 - Kindel (ilmneb sageli)", "5 - Eriti raske (surm)"])
+    
+    pdf.ln(2)
+    pdf.cell(0, 5, "Hinnang: 1-4 Madal; 5-12 Keskmine; 15-25 KORGE (Too ohtlik!)", ln=True)
+
+    # 4. Allkirjad
     pdf.ln(10)
     pdf.set_font("helvetica", 'B', 10)
     pdf.cell(95, 10, "Koostaja allkiri: .........................", 0, 0)
@@ -148,10 +164,10 @@ def loe_pdf():
         img = Image.open(foto).convert("RGB")
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='JPEG')
-        pdf.image(img_byte_arr, x=15, y=20, w=180)
+        pdf.image(img_byte_arr, x=15, y=25, w=180)
 
     return pdf.output()
 
-if st.button("🚀 GENEREERI PDF"):
+if st.button("🚀 GENEREERI LÕPLIK PDF"):
     output = loe_pdf()
     st.download_button("📥 Laadi alla", bytes(output), f"Riskianalyys_{aadress}.pdf", "application/pdf")
