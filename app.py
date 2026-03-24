@@ -8,21 +8,11 @@ import pytz
 
 # --- 0. ASUKOHAD JA KELLAAEG ---
 MAAKONNAD = {
-    "Harjumaa": (59.33, 24.75),
-    "Tartumaa": (58.37, 26.72),
-    "Pärnumaa": (58.38, 24.50),
-    "Ida-Virumaa": (59.35, 27.41),
-    "Saaremaa": (58.25, 22.48),
-    "Viljandimaa": (58.36, 25.59),
-    "Lääne-Virumaa": (59.34, 26.35),
-    "Võrumaa": (57.84, 27.00),
-    "Raplamaa": (58.99, 24.79),
-    "Järvamaa": (58.88, 25.56),
-    "Läänemaa": (58.94, 23.54),
-    "Jõgevamaa": (58.74, 26.39),
-    "Põlvamaa": (58.05, 27.05),
-    "Valgamaa": (57.77, 26.03),
-    "Hiiumaa": (58.88, 22.59)
+    "Harjumaa": (59.33, 24.75), "Tartumaa": (58.37, 26.72), "Pärnumaa": (58.38, 24.50),
+    "Ida-Virumaa": (59.35, 27.41), "Saaremaa": (58.25, 22.48), "Viljandimaa": (58.36, 25.59),
+    "Lääne-Virumaa": (59.34, 26.35), "Võrumaa": (57.84, 27.00), "Raplamaa": (58.99, 24.79),
+    "Järvamaa": (58.88, 25.56), "Läänemaa": (58.94, 23.54), "Jõgevamaa": (58.74, 26.39),
+    "Põlvamaa": (58.05, 27.05), "Valgamaa": (57.77, 26.03), "Hiiumaa": (58.88, 22.59)
 }
 
 def get_eesti_aeg():
@@ -32,7 +22,6 @@ def get_eesti_aeg():
     except:
         return datetime.datetime.now().strftime("%H:%M")
 
-# --- 1. ILMAFUNKTSIOON (Open-Meteo) ---
 def get_weather(lat, lon):
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms"
@@ -40,7 +29,6 @@ def get_weather(lat, lon):
         data = response.json()
         current = data['current']
         w_code = current['weather_code']
-        # Ilmakoodide tõlge
         if w_code == 0: ilm = "Selge"
         elif w_code in [1, 2, 3]: ilm = "Vahelduv pilvisus"
         elif w_code in [61, 63, 65]: ilm = "Vihmasadu"
@@ -50,7 +38,7 @@ def get_weather(lat, lon):
     except:
         return 0.0, "Andmed puuduvad", 0.0
 
-# --- 2. ANDMETE ETTEVALMISTUS ---
+# --- 1. ANDMED ---
 toovahendid_valik = ["Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Plokid ja rigging-köied", "Muu..."]
 meetmed_valik = ["Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine", "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll", "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", "Töö peatamine ebasobiva ilmaga", "Antivibratsioon-kindad", "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate", "Esmaabikomplekt", "Allergiaravimid (antihistamiinid)", "Muu..."]
 t_r_valikud = [1, 2, 3, 4, 5]
@@ -66,7 +54,7 @@ ohud_base = [
     ["Elektrilöök", "Õhuliinid", "Muu...", "Ohutu vahemaa hoidmine", 1, 5]
 ]
 
-# --- 3. PDF KLASS ---
+# --- 2. PDF KLASS ---
 class ArboristPDF(FPDF):
     def header(self):
         self.set_font("helvetica", 'B', 14)
@@ -74,21 +62,17 @@ class ArboristPDF(FPDF):
         self.cell(0, 10, h_text, ln=True, align='C')
         self.ln(2)
 
-# --- 4. KASUTAJALIIDES ---
+# --- 3. KASUTAJALIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v4.7 (Maakonna valikuga)")
+st.title("🌳 Arborisk Pro v4.8")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
 
 with col_b:
-    st.subheader("Asukoht ja Ilm")
     valitud_maakond = st.selectbox("Vali maakond prognoosiks", list(MAAKONNAD.keys()))
     lat, lon = MAAKONNAD[valitud_maakond]
-    
-    # Küsime ilma vastavalt valitud maakonnale
     auto_tuul, auto_ilm, auto_temp = get_weather(lat, lon)
-    
     tuul = st.number_input("Tuule kiirus (m/s)", value=float(auto_tuul))
     ilm_tekst = st.text_input("Ilm (prognoos)", value=f"{auto_ilm}, {auto_temp}C")
     haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
@@ -105,6 +89,9 @@ with col_a:
 st.divider()
 
 st.header("2. RISKIDE HINDAMINE")
+# ABIINFO EKRAANIL
+st.info("💡 **T (Tõenäosus):** 1-Väike, 3-Keskmine, 5-Kindel | **R (Raskusaste):** 1-Kerge, 3-Raske, 5-Surm")
+
 tabeli_andmed = []
 for i, oht in enumerate(ohud_base):
     with st.expander(f"📍 {oht[0]}", expanded=False):
@@ -127,7 +114,6 @@ for i, oht in enumerate(ohud_base):
 
 foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
 
-# --- 5. PDF GENEREERIMINE ---
 def loe_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
@@ -154,7 +140,29 @@ def loe_pdf():
             encoded_row = [enc(item) for item in rida]
             table.row(encoded_row)
 
-    pdf.ln(10)
+    # --- T, R JA SKOORI KIRJELDUSED (UUS OSA) ---
+    pdf.ln(8)
+    pdf.set_font("helvetica", 'B', 9)
+    pdf.cell(0, 8, enc("RISKIHINDAMISE SELGITUSED"), ln=True)
+    pdf.set_font("helvetica", '', 7)
+    
+    with pdf.table(col_widths=(95, 95)) as table:
+        table.row([enc("T - TÕENÄOSUS"), enc("R - RASKUSASTE (TAGAJÄRG)")])
+        table.row([enc("1 - Väga väike (peaaegu välistatud)"), enc("1 - Ebaoluline (vajab vaid esmaabi)")])
+        table.row([enc("2 - Väike (ilmneb harva)"), enc("2 - Kerge (töövõimetus kuni 7 päeva)")])
+        table.row([enc("3 - Keskmine (võib esineda sageli)"), enc("3 - Keskmine (raske vigastus, pikk ravi)")])
+        table.row([enc("4 - Suur (ilmneb väga sageli)"), enc("4 - Raske (püsiv tervisekahjustus)")])
+        table.row([enc("5 - Väga suur (ilmneb kindlasti)"), enc("5 - Eriti raske (surmaga lõppev õnnetus)")])
+
+    pdf.ln(4)
+    pdf.set_font("helvetica", 'B', 8)
+    pdf.cell(0, 5, enc("RISKI TASEME HINNANG (Skoor = T x R):"), ln=True)
+    pdf.set_font("helvetica", '', 7)
+    pdf.cell(0, 4, enc("- 1 kuni 4: MADAL RISK. Ohutusmeetmed on piisavad, töö on lubatud."), ln=True)
+    pdf.cell(0, 4, enc("- 5 kuni 12: KESKMINE RISK. Vajalikud on täiendavad meetmed ja kõrgendatud tähelepanu."), ln=True)
+    pdf.cell(0, 4, enc("- 15 kuni 25: KÕRGE RISK (TÖÖ KEELATUD!). Oht on liiga suur, töö tuleb peatada!"), ln=True)
+
+    pdf.ln(8)
     pdf.set_font("helvetica", 'B', 10)
     pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
     pdf.cell(95, 10, enc("Töötaja allkiri: ........................."), 0, 1)
