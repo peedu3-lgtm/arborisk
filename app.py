@@ -15,6 +15,28 @@ MAAKONNAD = {
     "Põlvamaa": (58.05, 27.05), "Valgamaa": (57.77, 26.03), "Hiiumaa": (58.88, 22.59)
 }
 
+# --- TÕLKED ---
+LANG = {
+    "ET": {
+        "title": "TÖÖKOHA RISKIANALÜÜS", "employer": "Tööandja", "responsible": "Vastutav isik", 
+        "address": "Objekti aadress", "owner": "Omaniku kontakt", "time": "Töö algusaeg",
+        "weather": "Ilm ja tuul", "county": "Vali maakond", "tree": "Puu liik ja seisund",
+        "env": "Teed, rajad ja pinnas", "risk_tab": "RISKIDE HINDAMINE", "hazard": "Oht",
+        "desc": "Kirjeldus", "tools": "Varustus", "measures": "Meetmed", "score": "Skoor",
+        "custom_tools": "VÕI kirjuta ise varustus:", "custom_measures": "VÕI kirjuta ise meede:",
+        "gen": "GENEREERI PDF", "summary": "RISKIHINDAMISE SELGITUSED"
+    },
+    "EN": {
+        "title": "SITE RISK ASSESSMENT", "employer": "Employer", "responsible": "Person in charge", 
+        "address": "Site address", "owner": "Owner contact", "time": "Start time",
+        "weather": "Weather & Wind", "county": "Select county", "tree": "Tree species & condition",
+        "env": "Paths, roads & soil", "risk_tab": "RISK ASSESSMENT", "hazard": "Hazard",
+        "desc": "Description", "tools": "Equipment", "measures": "Mitigation", "score": "Score",
+        "custom_tools": "OR write custom equipment:", "custom_measures": "OR write custom measure:",
+        "gen": "GENERATE PDF", "summary": "RISK ASSESSMENT EXPLANATIONS"
+    }
+}
+
 def get_eesti_aeg():
     try:
         eesti_tz = pytz.timezone('Europe/Tallinn')
@@ -24,145 +46,111 @@ def get_eesti_aeg():
 
 def get_weather(lat, lon):
     try:
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms"
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m&wind_speed_unit=ms"
         response = requests.get(url, timeout=3)
         data = response.json()
-        current = data['current']
-        return round(current['wind_speed_10m'], 1), f"{current['temperature_2m']}C"
-    except:
-        return 0.0, "Määra käsitsi"
+        return round(data['current']['wind_speed_10m'], 1), f"{data['current']['temperature_2m']}C"
+    except: return 0.0, "N/A"
 
-# --- 1. RISKIMAATRIKSI ANDMED ---
-toovahendid_valik = ["Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Plokid ja rigging-köied", "Muu..."]
-meetmed_valik = ["Ohuala tähistamine", "IKV kandmine", "Varustuse kontroll", "Vintsimine", "Ohutu vahemaa", "Töö peatamine", "Kõrvaklapid", "Sõidukite parkimine", "Vara kaitse", "Esmaabikomplekt", "Allergiaravimid", "Muu..."]
-
-ohud_base = [
-    ["Kukkuvad oksad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine", 2, 4],
-    ["Kukkumine kõrgusest", "Ronimine/tõstuk", "Ronimisvarustus", "IKV kandmine", 1, 5],
-    ["Puu vale kukkumissuund", "Langetamine", "Vints", "Vintsimine", 1, 5],
-    ["Müra ja Vibratsioon", "Tervisekahjustus", "Mootorsaag", "Kõrvaklapid", 3, 2],
-    ["Kõrvalised isikud / Autod", "Vigastused ja varaline kahju", "Piirdelint", "Ohuala tähistamine", 2, 3],
-    ["Võõras vara (aiad, katused)", "Löökkahjustused", "Plokid ja rigging", "Vara kaitse", 2, 3],
-    ["Herilased / Puugid", "Nõelamine / bioloogiline oht", "Muu...", "Allergiaravimid", 2, 3],
-    ["Elektrilöök", "Õhuliinid läheduses", "Muu...", "Ohutu vahemaa", 1, 5]
-]
-
-class ArboristPDF(FPDF):
-    def header(self):
-        self.set_font("helvetica", 'B', 14)
-        h_text = "TÖÖKOHA RISKIANALÜÜS JA OHUTUSPLAAN".encode('latin-1', 'replace').decode('latin-1')
-        self.cell(0, 10, h_text, ln=True, align='C')
-
-# --- 2. KASUTAJALIIDES (UI) ---
+# --- 1. UI JA KEELE VALIK ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v6.2 (Täisversioon)")
+lang_choice = st.sidebar.radio("Keel / Language", ["ET", "EN"])
+T = LANG[lang_choice]
 
-st.header("1. ÜLDISED ANDMED JA ILM")
+st.title(f"🌳 Arborisk Pro v6.3 ({lang_choice})")
+
+st.header(f"1. {T['employer']}")
 col_a, col_b = st.columns(2)
 
 with col_b:
-    valitud_maakond = st.selectbox("Vali maakond", list(MAAKONNAD.keys()))
-    lat, lon = MAAKONNAD[valitud_maakond]
+    maakond = st.selectbox(T['county'], list(MAAKONNAD.keys()))
+    lat, lon = MAAKONNAD[maakond]
     auto_tuul, auto_ilm = get_weather(lat, lon)
-    tuul = st.number_input("Tuule kiirus (m/s)", value=auto_tuul)
-    ilm_tekst = st.text_input("Ilm ja temp", value=auto_ilm)
-    haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
+    tuul = st.number_input(T['weather'], value=auto_tuul)
+    ilm_tekst = st.text_input("Temp", value=auto_ilm)
+    haigla = st.text_input("EMO", "PERH / TÜ Kliinikum")
 
 with col_a:
-    tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
-    vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
-    aadress = st.text_input("Objekti aadress", "")
-    omanik_info = st.text_input("Omaniku kontakt", "")
-    kellaaeg = st.text_input("Töö algusaeg", value=get_eesti_aeg())
+    tooaandja = st.text_input(T['employer'], "Aiavana Hooldusteenused OÜ")
+    vastutav = st.text_input(T['responsible'], "Ivar Peedu")
+    aadress = st.text_input(T['address'], "")
+    omanik_info = st.text_input(T['owner'], "")
+    kellaaeg = st.text_input(T['time'], value=get_eesti_aeg())
 
 st.divider()
 
-st.header("2. PUU JA KESKKONNA SEISUND")
+st.header(f"2. {T['tree']}")
 col_c, col_d = st.columns(2)
-with col_c:
-    puu_seisund = st.text_area("Puu liik, mõõtmed ja seisund (seened, mädanik, kalle jne)")
-with col_d:
-    keskkond_info = st.text_area("Teed, rajad ja pinnas (liiklus, kalle jne)")
+with col_c: puu_seisund = st.text_area(T['tree'])
+with col_d: keskkond_info = st.text_area(T['env'])
 
 st.divider()
 
-st.header("3. RISKIDE HINDAMINE")
-st.info("💡 **T**-Tõenäosus (1-Väike...5-Kindel) | **R**-Raskusaste (1-Kerge...5-Surm) | **Skoor** = T x R")
+st.header(f"3. {T['risk_tab']}")
+toovahendid_valik = ["Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", "Kännufrees", "Vints", "Kiilud", "Piirdelint", "Rigging", "Muu..."]
+meetmed_valik = ["Ohuala tähistamine", "IKV kandmine", "Varustuse kontroll", "Vintsimine", "Ohutu vahemaa", "Töö peatamine", "Kõrvaklapid", "Sõidukite parkimine", "Vara kaitse", "Esmaabi", "Muu..."]
+
+ohud_base = [
+    ["Kukkuvad oksad", "Falling branches", 2, 4], ["Kukkumine", "Falling from height", 1, 5],
+    ["Vale suund", "Wrong falling direction", 1, 5], ["Müra/Vibra", "Noise/Vibration", 3, 2],
+    ["Isikud/Autod", "Bystanders/Vehicles", 2, 3], ["Vara (aiad)", "Property damage", 2, 3],
+    ["Putukad", "Insects/Ticks", 2, 3], ["Elekter", "Power lines", 1, 5]
+]
 
 tabeli_andmed = []
 for i, oht in enumerate(ohud_base):
-    with st.expander(f"📍 {oht[0]}", expanded=False):
+    oht_nimi = oht[0] if lang_choice == "ET" else oht[1]
+    with st.expander(f"📍 {oht_nimi}", expanded=False):
         c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2, 0.5, 0.5])
-        with c1: kirj = st.text_input("Kirjeldus", value=oht[1], key=f"k{i}")
+        with c1: kirj = st.text_input(T['desc'], value=oht_nimi, key=f"k{i}")
         with c2:
-            v_val = st.multiselect("Varustus", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
-            v_kokku = ", ".join(v_val)
+            v_val = st.multiselect(T['tools'], toovahendid_valik, key=f"v{i}")
+            v_lisa = st.text_input(T['custom_tools'], key=f"vl{i}")
+            v_kokku = ", ".join(v_val) + (f" {v_lisa}" if v_lisa else "")
         with c3:
-            m_val = st.multiselect("Meetmed", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
-            m_kokku = ", ".join(m_val)
-        with c4: t = st.selectbox("T", [1,2,3,4,5], index=oht[4]-1, key=f"t{i}")
-        with c5: r = st.selectbox("R", [1,2,3,4,5], index=oht[5]-1, key=f"r{i}")
+            m_val = st.multiselect(T['measures'], meetmed_valik, key=f"m{i}")
+            m_lisa = st.text_input(T['custom_measures'], key=f"ml{i}")
+            m_kokku = ", ".join(m_val) + (f" {m_lisa}" if m_lisa else "")
+        with c4: t = st.selectbox("T", [1,2,3,4,5], index=oht[2]-1, key=f"t{i}")
+        with c5: r = st.selectbox("R", [1,2,3,4,5], index=oht[3]-1, key=f"r{i}")
         sk = t * r
-        tase = "MADAL" if sk <= 4 else "KESKMINE" if sk <= 12 else "KÕRGE"
-        st.write(f"Skoor: **{sk} ({tase})**")
-        tabeli_andmed.append([oht[0], kirj, v_kokku, m_kokku, f"{sk} ({tase})"])
+        tabeli_andmed.append([oht_nimi, kirj, v_kokku, m_kokku, f"{sk}"])
+        st.write(f"{T['score']}: **{sk}**")
 
-foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
+foto = st.file_uploader("Foto", type=['jpg', 'jpeg', 'png'])
 
-# --- 3. PDF GENEREERIMINE ---
 def loe_pdf():
-    pdf = ArboristPDF()
+    pdf = FPDF()
     pdf.add_page()
     def enc(txt): return str(txt).encode('latin-1', 'replace').decode('latin-1')
-
-    # 1. Üldinfo
-    pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc("1. ÜLDISED ANDMED JA TÖÖTINGIMUSED"), ln=True)
+    pdf.set_font("helvetica", 'B', 14)
+    pdf.cell(0, 10, enc(T['title']), ln=True, align='C')
     pdf.set_font("helvetica", '', 10)
+    pdf.ln(5)
     with pdf.table(col_widths=(45, 145)) as table:
-        table.row([enc("Tööandja/Vastutav"), enc(f"{tooaandja} / {vastutav}")])
-        table.row([enc("Aadress/Omanik"), enc(f"{aadress} / {omanik_info}")])
-        table.row([enc("Ilm / Aeg"), enc(f"{ilm_tekst}, tuul {tuul} m/s | Kell: {kellaaeg}")])
-
-    # 2. Puu ja keskkond
+        table.row([enc(T['employer']), enc(tooaandja)])
+        table.row([enc(T['responsible']), enc(vastutav)])
+        table.row([enc(T['address']), enc(aadress)])
+        table.row([enc(T['weather']), enc(f"{ilm_tekst}, {tuul} m/s")])
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc("2. PUU JA KESKKONNA SEISUND"), ln=True)
+    pdf.cell(0, 10, enc(T['tree']), ln=True)
     pdf.set_font("helvetica", '', 10)
-    with pdf.table(col_widths=(45, 145)) as table:
-        table.row([enc("Puu seisund"), enc(puu_seisund)])
-        table.row([enc("Keskkond / Pinnas"), enc(keskkond_info)])
-
-    # 3. Riskitabel
+    pdf.multi_cell(0, 5, enc(puu_seisund + "\n" + keskkond_info))
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc("3. RISKIDE HINDAMISE MAATRIKS"), ln=True)
+    pdf.cell(0, 10, enc(T['risk_tab']), ln=True)
     pdf.set_font("helvetica", '', 6)
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
-        table.row([enc("Oht"), enc("Kirjeldus"), enc("Varustus"), enc("Meetmed"), enc("Skoor")])
-        for rida in tabeli_andmed:
-            table.row([enc(item) for item in rida])
-
-    # 4. SELGITUSED (See osa, mis vahepeal kadus!)
-    pdf.ln(8)
-    pdf.set_font("helvetica", 'B', 9)
-    pdf.cell(0, 8, enc("RISKIHINDAMISE SELGITUSED"), ln=True)
-    pdf.set_font("helvetica", '', 7)
-    with pdf.table(col_widths=(95, 95)) as table:
-        table.row([enc("T - TÕENÄOSUS (1-5)"), enc("R - RASKUSASTE (1-5)")])
-        table.row([enc("1-Väike; 3-Keskmine; 5-Kindel"), enc("1-Kerge; 3-Raske; 5-Surm")])
+        table.row([enc(T['hazard']), enc(T['desc']), enc(T['tools']), enc(T['measures']), enc(T['score'])])
+        for rida in tabeli_andmed: table.row([enc(item) for item in rida])
     
-    pdf.ln(4)
-    pdf.set_font("helvetica", 'B', 8)
-    pdf.cell(0, 5, enc("RISKI TASEME HINNANG (Skoor = T x R):"), ln=True)
-    pdf.set_font("helvetica", '', 7)
-    pdf.cell(0, 4, enc("- 1 kuni 4: MADAL RISK. Ohutusmeetmed on piisavad."), ln=True)
-    pdf.cell(0, 4, enc("- 5 kuni 12: KESKMINE RISK. Vajalikud on täiendavad meetmed."), ln=True)
-    pdf.cell(0, 4, enc("- 15 kuni 25: KÕRGE RISK (TÖÖ KEELATUD!). Oht on liiga suur."), ln=True)
-
+    # SELGITUSED PDF-is
     pdf.ln(10)
-    pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
-    pdf.cell(95, 10, enc("Töötaja allkiri: ........................."), 0, 1)
+    pdf.set_font("helvetica", 'B', 9)
+    pdf.cell(0, 5, enc(T['summary']), ln=True)
+    pdf.set_font("helvetica", '', 7)
+    pdf.cell(0, 4, enc("T (1-5) x R (1-5) = Score. 1-4: Low, 5-12: Medium, 15-25: High (STOP!)"), ln=True)
 
     if foto:
         pdf.add_page()
@@ -172,6 +160,6 @@ def loe_pdf():
         pdf.image(img_byte_arr, x=15, y=25, w=180)
     return pdf.output()
 
-if st.button("🚀 GENEREERI LÕPLIK PDF"):
+if st.button(T['gen']):
     output = loe_pdf()
-    st.download_button("📥 Laadi alla", bytes(output), f"Riskianalyys_{aadress}.pdf", "application/pdf")
+    st.download_button("PDF", bytes(output), f"Risk_{aadress}.pdf", "application/pdf")
