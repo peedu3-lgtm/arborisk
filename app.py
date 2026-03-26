@@ -24,69 +24,58 @@ def get_eesti_aeg():
 
 def get_weather(lat, lon):
     try:
-        # Lisatud timeout ja täpsem päring
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            current = data['current']
-            w_code = current['weather_code']
-            # Ilmakoodid
-            if w_code == 0: ilm = "Selge"
-            elif w_code in [1, 2, 3]: ilm = "Vahelduv pilvisus"
-            elif w_code in [61, 63, 65]: ilm = "Vihmasadu"
-            elif w_code in [71, 73, 75, 77, 85, 86]: ilm = "Lumesadu"
-            else: ilm = "Pilves"
-            return float(current['wind_speed_10m']), ilm, float(current['temperature_2m'])
-    except Exception as e:
-        pass
-    return 0.0, "Sisetage kasitsi", 0.0
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        current = data['current']
+        w_code = current['weather_code']
+        # Tõlgime koodid tekstiks
+        if w_code == 0: ilm = "Selge"
+        elif w_code in [1, 2, 3]: ilm = "Vahelduv pilvisus"
+        elif w_code in [61, 63, 65]: ilm = "Vihmasadu"
+        elif w_code in [71, 73, 75]: ilm = "Lumesadu"
+        else: ilm = "Pilves"
+        return round(current['wind_speed_10m'], 1), ilm, round(current['temperature_2m'], 1)
+    except:
+        return 0.0, "Määra käsitsi", 0.0
 
 # --- 1. SEADISTUSED ---
 toovahendid_valik = ["Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Plokid ja rigging-köied", "Muu..."]
-meetmed_valik = ["Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine", "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll", "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", "Töö peatamine ebasobiva ilmaga", "Antivibratsioon-kindad", "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate", "Esmaabikomplekt", "Allergiaravimid", "Muu..."]
-t_r_valikud = [1, 2, 3, 4, 5]
+meetmed_valik = ["Ohuala tähistamine", "IKV kandmine", "Varustuse kontroll", "Vintsimine", "Ohutu vahemaa hoidmine", "Töö peatamine", "Kõrvaklapid", "Sõidukite parkimine", "Vara kaitse", "Esmaabikomplekt", "Allergiaravimid", "Muu..."]
 
 ohud_base = [
-    ["Kukkuvad oksad ja ladvaosad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine ja piiramine", 2, 4],
-    ["Kõrgusest kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "Isikukaitsevahendite (IKV) kandmine", 1, 5],
-    ["Puu langemine vales suunas", "Tüve langetamine", "Vints", "Vintsimine ja suunamine", 1, 5],
+    ["Kukkuvad oksad", "Puuvõra hooldus", "Mootorsaag", "Ohuala tähistamine", 2, 4],
+    ["Kukkumine", "Ronimine/tõstuk", "Ronimisvarustus", "IKV kandmine", 1, 5],
+    ["Vale kukkumissuund", "Langetamine", "Vints", "Vintsimine", 1, 5],
     ["Müra ja Vibratsioon", "Tervisekahjustus", "Mootorsaag", "Kõrvaklapid", 3, 2],
-    ["Kõrvalised isikud / Autod", "Vigastused ja varaline kahju", "Piirdelint/koonused", "Ohuala tähistamine ja piiramine", 2, 3],
-    ["Võõras vara (aiad, katused)", "Löökkahjustused", "Plokid ja rigging-köied", "Vara kaitse/kate", 2, 3],
-    ["Herilased / Puugid", "Allergia/haigus", "Muu...", "Allergiaravimid", 2, 3],
-    ["Elektrilöök", "Õhuliinid", "Muu...", "Ohutu vahemaa hoidmine", 1, 5]
+    ["Kõrvalised isikud / Autod", "Vigastused ja varaline kahju", "Piirdelint", "Ohuala tähistamine", 2, 3],
+    ["Vara (aiad, katused)", "Löökkahjustused", "Plokid ja rigging", "Vara kaitse", 2, 3],
+    ["Herilased / Puugid", "Nõelamine / bioloogiline oht", "Muu...", "Allergiaravimid", 2, 3],
+    ["Elektrilöök", "Õhuliinid läheduses", "Muu...", "Ohutu vahemaa", 1, 5]
 ]
 
+# --- 2. PDF ---
 class ArboristPDF(FPDF):
     def header(self):
         self.set_font("helvetica", 'B', 14)
         h_text = "TÖÖKOHA RISKIANALÜÜS JA OHUTUSPLAAN".encode('latin-1', 'replace').decode('latin-1')
         self.cell(0, 10, h_text, ln=True, align='C')
-        self.ln(2)
 
-# --- 2. KASUTAJALIIDES ---
+# --- 3. UI ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v5.1")
+st.title("🌳 Arborisk Pro v5.6")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
 
 with col_b:
-    st.subheader("Asukoht ja Ilm")
-    valitud_maakond = st.selectbox("Vali maakond prognoosiks", list(MAAKONNAD.keys()))
+    valitud_maakond = st.selectbox("Vali maakond", list(MAAKONNAD.keys()))
     lat, lon = MAAKONNAD[valitud_maakond]
-    
-    # Nupp ilma uuendamiseks, kui automaatne tõrgub
-    if st.button("🔄 Uuenda ilmateadet"):
-        st.cache_data.clear()
-
     auto_tuul, auto_ilm, auto_temp = get_weather(lat, lon)
     
     tuul = st.number_input("Tuule kiirus (m/s)", value=auto_tuul)
-    ilm_tekst = st.text_input("Ilm (prognoos)", value=f"{auto_ilm}, {auto_temp}C")
+    ilm_tekst = st.text_input("Ilm ja temp", value=f"{auto_ilm}, {auto_temp}C")
     haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
-    if tuul > 12: st.error("⚠️ HOIATUS: Tugev tuul!")
 
 with col_a:
     tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
@@ -97,12 +86,15 @@ with col_a:
 
 st.divider()
 
+# --- UUS: PUU JA KESKKOND ---
 st.header("2. PUU JA KESKKONNA SEISUND")
 col_c, col_d = st.columns(2)
 with col_c:
-    puu_andmed = st.text_area("Puu liik, mõõtmed ja seisund", placeholder="Mädanikud, seened, rebendid, õõnsused, kalle jne...")
+    puu_andmed = st.text_area("Puu liik, mõõtmed ja seisund", 
+        placeholder="Seenhaigused, õõnsused, mädanik, kalle jne...")
 with col_d:
-    keskkond_andmed = st.text_area("Teed, rajad, pinnas", placeholder="Kaugus teest, liiklustihedus, pinnase seisund, kalle...")
+    keskkond_andmed = st.text_area("Teed, rajad ja pinnas", 
+        placeholder="Liiklus, pinnase kalle, kaugus hoonetest...")
 
 st.divider()
 
@@ -114,33 +106,33 @@ for i, oht in enumerate(ohud_base):
         with c1: kirj = st.text_input("Kirjeldus", value=oht[1], key=f"k{i}")
         with c2:
             v_val = st.multiselect("Varustus", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
-            v_lisa = st.text_input("Lisa varustus:", key=f"vl{i}")
-            v_kokku = ", ".join(v_val) + (f", {v_lisa}" if v_lisa else "")
+            v_kokku = ", ".join(v_val)
         with c3:
             m_val = st.multiselect("Meetmed", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
-            m_lisa = st.text_input("Lisa meede:", key=f"ml{i}")
-            m_kokku = ", ".join(m_val) + (f", {m_lisa}" if m_lisa else "")
-        with c4: t = st.selectbox("T", t_r_valikud, index=t_r_valikud.index(oht[4]), key=f"t{i}")
-        with c5: r = st.selectbox("R", t_r_valikud, index=t_r_valikud.index(oht[5]), key=f"r{i}")
+            m_kokku = ", ".join(m_val)
+        with c4: t = st.selectbox("T", [1,2,3,4,5], index=oht[4]-1, key=f"t{i}")
+        with c5: r = st.selectbox("R", [1,2,3,4,5], index=oht[5]-1, key=f"r{i}")
         sk = t * r
         st.write(f"Skoor: **{sk}**")
         tabeli_andmed.append([oht[0], kirj, v_kokku, m_kokku, f"{sk}"])
 
-foto = st.file_uploader("Lisa foto", type=['jpg', 'jpeg', 'png'])
+foto = st.file_uploader("Lisa foto objektist", type=['jpg', 'jpeg', 'png'])
 
 def loe_pdf():
     pdf = ArboristPDF()
     pdf.add_page()
     def enc(txt): return str(txt).encode('latin-1', 'replace').decode('latin-1')
 
+    # 1. Üldinfo
     pdf.set_font("helvetica", 'B', 11)
     pdf.cell(0, 10, enc("1. ÜLDISED ANDMED"), ln=True)
     pdf.set_font("helvetica", '', 10)
     with pdf.table(col_widths=(45, 145)) as table:
-        table.row([enc("Tööandja/Vastutav"), enc(f"{tooaandja} / {vastutav}")])
+        table.row([enc("Tooandja/Vastutav"), enc(f"{tooaandja} / {vastutav}")])
         table.row([enc("Aadress/Omanik"), enc(f"{aadress} / {omanik_info}")])
-        table.row([enc("Ilm/Aeg"), enc(f"{ilm_tekst}, tuul {tuul} m/s | Kell: {kellaaeg}")])
+        table.row([enc("Ilm / Aeg"), enc(f"{ilm_tekst}, tuul {tuul} m/s | Kell: {kellaaeg}")])
 
+    # 2. Puu info
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
     pdf.cell(0, 10, enc("2. PUU JA KESKKONNA SEISUND"), ln=True)
@@ -149,18 +141,19 @@ def loe_pdf():
         table.row([enc("Puu seisund"), enc(puu_andmed)])
         table.row([enc("Keskkond"), enc(keskkond_andmed)])
 
+    # 3. Riskitabel
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc("3. RISKIDE TABEL"), ln=True)
+    pdf.cell(0, 10, enc("3. RISKIDE HINDAMISE MAATRIKS"), ln=True)
     pdf.set_font("helvetica", '', 6)
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
         table.row([enc("Oht"), enc("Kirjeldus"), enc("Varustus"), enc("Meetmed"), enc("Skoor")])
         for rida in tabeli_andmed:
-            table.row([enc(i) for i in rida])
+            table.row([enc(item) for item in rida])
 
     pdf.ln(10)
     pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
-    pdf.cell(95, 10, enc("Töötaja allkiri: ........................."), 0, 1)
+    pdf.cell(95, 10, enc("Tootaja allkiri: ........................."), 0, 1)
 
     if foto:
         pdf.add_page()
@@ -168,9 +161,8 @@ def loe_pdf():
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='JPEG')
         pdf.image(img_byte_arr, x=15, y=25, w=180)
-
     return pdf.output()
 
-if st.button("🚀 GENEREERI PDF"):
+if st.button("🚀 GENEREERI LÕPLIK PDF"):
     output = loe_pdf()
     st.download_button("📥 Laadi alla", bytes(output), f"Riskianalyys_{aadress}.pdf", "application/pdf")
