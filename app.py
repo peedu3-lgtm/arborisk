@@ -32,15 +32,14 @@ def get_weather(lat, lon):
         if w_code == 0: ilm = "Selge"
         elif w_code in [1, 2, 3]: ilm = "Vahelduv pilvisus"
         elif w_code in [61, 63, 65]: ilm = "Vihmasadu"
-        elif w_code in [71, 73, 75]: ilm = "Lumesadu"
-        else: ilm = "Pilves"
+        else: ilm = "Pilves/Sajune"
         return current['wind_speed_10m'], ilm, current['temperature_2m']
     except:
         return 0.0, "Andmed puuduvad", 0.0
 
-# --- 1. ANDMED ---
+# --- 1. SEADISTUSED ---
 toovahendid_valik = ["Mootorsaag", "Käsisaag", "Ronimisvarustus", "Korvtõstuk", "Hakkur", "Kännufrees", "Vints", "Kiilud ja haamer", "Piirdelint/koonused", "Plokid ja rigging-köied", "Muu..."]
-meetmed_valik = ["Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine", "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll", "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", "Töö peatamine ebasobiva ilmaga", "Antivibratsioon-kindad", "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate", "Esmaabikomplekt", "Allergiaravimid (antihistamiinid)", "Muu..."]
+meetmed_valik = ["Ohuala tähistamine ja piiramine", "Kõrvaliste isikute eemaldamine", "Isikukaitsevahendite (IKV) kandmine", "Varustuse eelnev kontroll", "Vintsimine ja suunamine", "Ohutu vahemaa hoidmine", "Töö peatamine ebasobiva ilmaga", "Antivibratsioon-kindad", "Kõrvaklapid", "Sõidukite ümberparkimine", "Vara kaitse/kate", "Esmaabikomplekt", "Allergiaravimid", "Muu..."]
 t_r_valikud = [1, 2, 3, 4, 5]
 
 ohud_base = [
@@ -50,7 +49,7 @@ ohud_base = [
     ["Müra ja Vibratsioon", "Tervisekahjustus", "Mootorsaag", "Kõrvaklapid", 3, 2],
     ["Kõrvalised isikud / Autod", "Vigastused ja varaline kahju", "Piirdelint/koonused", "Ohuala tähistamine ja piiramine", 2, 3],
     ["Võõras vara (aiad, katused)", "Löökkahjustused", "Plokid ja rigging-köied", "Vara kaitse/kate", 2, 3],
-    ["Herilased / Puugid", "Allergia/haigus", "Muu...", "Allergiaravimid (antihistamiinid)", 2, 3],
+    ["Herilased / Puugid", "Allergia/haigus", "Muu...", "Allergiaravimid", 2, 3],
     ["Elektrilöök", "Õhuliinid", "Muu...", "Ohutu vahemaa hoidmine", 1, 5]
 ]
 
@@ -64,7 +63,7 @@ class ArboristPDF(FPDF):
 
 # --- 3. KASUTAJALIIDES ---
 st.set_page_config(page_title="Arborisk Pro", layout="wide")
-st.title("🌳 Arborisk Pro v4.8")
+st.title("🌳 Arborisk Pro v5.0")
 
 st.header("1. ÜLDISED ANDMED JA ILM")
 col_a, col_b = st.columns(2)
@@ -76,22 +75,30 @@ with col_b:
     tuul = st.number_input("Tuule kiirus (m/s)", value=float(auto_tuul))
     ilm_tekst = st.text_input("Ilm (prognoos)", value=f"{auto_ilm}, {auto_temp}C")
     haigla = st.text_input("Lähim EMO", "PERH / TÜ Kliinikum")
-    if tuul > 12: st.error("⚠️ HOIATUS: Tugev tuul! Kõrgtööd peatada!")
 
 with col_a:
     tooaandja = st.text_input("Tööandja", "Aiavana Hooldusteenused OÜ")
     vastutav = st.text_input("Vastutav isik", "Ivar Peedu")
     aadress = st.text_input("Objekti aadress", "")
-    omanik_nimi = st.text_input("Objekti omaniku nimi", "")
-    omanik_kontakt = st.text_input("Omaniku kontakt", "")
+    omanik_info = st.text_input("Omaniku nimi ja kontakt", "")
     kellaaeg = st.text_input("Töö algusaeg", value=get_eesti_aeg())
 
 st.divider()
 
-st.header("2. RISKIDE HINDAMINE")
-# ABIINFO EKRAANIL
-st.info("💡 **T (Tõenäosus):** 1-Väike, 3-Keskmine, 5-Kindel | **R (Raskusaste):** 1-Kerge, 3-Raske, 5-Surm")
+# --- UUS SEKTSIOON: PUU JA KESKKOND ---
+st.header("2. PUU JA KESKKONNA SEISUND")
+col_c, col_d = st.columns(2)
 
+with col_c:
+    puu_andmed = st.text_area("Puu liik, mõõtmed ja seisund", 
+        placeholder="Mädanikud, seened, rebendid, õõnsused, kalle jne...")
+with col_d:
+    keskkond_andmed = st.text_area("Teed, rajad, pinnas", 
+        placeholder="Kaugus teest, liiklustihedus, pinnase seisund, kalle...")
+
+st.divider()
+
+st.header("3. RISKIDE HINDAMINE")
 tabeli_andmed = []
 for i, oht in enumerate(ohud_base):
     with st.expander(f"📍 {oht[0]}", expanded=False):
@@ -99,14 +106,15 @@ for i, oht in enumerate(ohud_base):
         with c1: kirj = st.text_input("Kirjeldus", value=oht[1], key=f"k{i}")
         with c2:
             v_val = st.multiselect("Varustus", toovahendid_valik, default=[oht[2]] if oht[2] in toovahendid_valik else [], key=f"v{i}")
-            v_lisa = st.text_input("VÕI kirjuta ise:", key=f"vl{i}")
+            v_lisa = st.text_input("VÕI kirjuta ise varustus:", key=f"vl{i}")
             v_kokku = ", ".join(v_val) + (f", {v_lisa}" if v_lisa else "")
         with c3:
             m_val = st.multiselect("Meetmed", meetmed_valik, default=[oht[3]] if oht[3] in meetmed_valik else [], key=f"m{i}")
-            m_lisa = st.text_input("VÕI kirjuta ise:", key=f"ml{i}")
+            m_lisa = st.text_input("VÕI kirjuta ise meede:", key=f"ml{i}")
             m_kokku = ", ".join(m_val) + (f", {m_lisa}" if m_lisa else "")
         with c4: t = st.selectbox("T", t_r_valikud, index=t_r_valikud.index(oht[4]), key=f"t{i}")
         with c5: r = st.selectbox("R", t_r_valikud, index=t_r_valikud.index(oht[5]), key=f"r{i}")
+        
         sk = t * r
         tase = "MADAL" if sk <= 4 else "KESKMINE" if sk <= 12 else "KÕRGE"
         st.write(f"Skoor: **{sk} ({tase})**")
@@ -119,20 +127,28 @@ def loe_pdf():
     pdf.add_page()
     def enc(txt): return str(txt).encode('latin-1', 'replace').decode('latin-1')
 
+    # 1. Üldandmed
     pdf.set_font("helvetica", 'B', 11)
     pdf.cell(0, 10, enc("1. ÜLDISED ANDMED JA TÖÖTINGIMUSED"), ln=True)
     pdf.set_font("helvetica", '', 10)
     with pdf.table(col_widths=(45, 145)) as table:
-        table.row([enc("Tööandja"), enc(tooaandja)])
-        table.row([enc("Vastutav isik"), enc(vastutav)])
-        table.row([enc("Objekti aadress"), enc(aadress)])
-        table.row([enc("Omanik"), enc(f"{omanik_nimi} ({omanik_kontakt})")])
-        table.row([enc(f"Ilm ({valitud_maakond})"), enc(f"{ilm_tekst}, tuul {tuul} m/s")])
-        table.row([enc("Kuupäev / Kell"), enc(f"{datetime.date.today()} / {kellaaeg}")])
+        table.row([enc("Tööandja / Vastutav"), enc(f"{tooaandja} / {vastutav}")])
+        table.row([enc("Aadress / Omanik"), enc(f"{aadress} / {omanik_info}")])
+        table.row([enc("Ilm / Aeg"), enc(f"{ilm_tekst}, tuul {tuul} m/s | Kell: {kellaaeg}")])
 
+    # 2. Puu ja keskkonna info (UUS)
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc("2. RISKIDE HINDAMISE MAATRIKS"), ln=True)
+    pdf.cell(0, 10, enc("2. PUU JA KESKKONNA SEISUND"), ln=True)
+    pdf.set_font("helvetica", '', 10)
+    with pdf.table(col_widths=(45, 145)) as table:
+        table.row([enc("Puu seisund"), enc(puu_andmed)])
+        table.row([enc("Keskkond / Pinnas"), enc(keskkond_andmed)])
+
+    # 3. Riskide tabel
+    pdf.ln(5)
+    pdf.set_font("helvetica", 'B', 11)
+    pdf.cell(0, 10, enc("3. RISKIDE HINDAMISE MAATRIKS"), ln=True)
     pdf.set_font("helvetica", '', 6)
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
         table.row([enc("Oht"), enc("Kirjeldus"), enc("Varustus"), enc("Meetmed"), enc("Skoor")])
@@ -140,30 +156,14 @@ def loe_pdf():
             encoded_row = [enc(item) for item in rida]
             table.row(encoded_row)
 
-    # --- T, R JA SKOORI KIRJELDUSED (UUS OSA) ---
-    pdf.ln(8)
+    # Selgitused
+    pdf.ln(5)
     pdf.set_font("helvetica", 'B', 9)
-    pdf.cell(0, 8, enc("RISKIHINDAMISE SELGITUSED"), ln=True)
+    pdf.cell(0, 6, enc("SELGITUSED: T-Tõenäosus, R-Raskusaste (1-Väike, 5-Suur)"), ln=True)
     pdf.set_font("helvetica", '', 7)
-    
-    with pdf.table(col_widths=(95, 95)) as table:
-        table.row([enc("T - TÕENÄOSUS"), enc("R - RASKUSASTE (TAGAJÄRG)")])
-        table.row([enc("1 - Väga väike (peaaegu välistatud)"), enc("1 - Ebaoluline (vajab vaid esmaabi)")])
-        table.row([enc("2 - Väike (ilmneb harva)"), enc("2 - Kerge (töövõimetus kuni 7 päeva)")])
-        table.row([enc("3 - Keskmine (võib esineda sageli)"), enc("3 - Keskmine (raske vigastus, pikk ravi)")])
-        table.row([enc("4 - Suur (ilmneb väga sageli)"), enc("4 - Raske (püsiv tervisekahjustus)")])
-        table.row([enc("5 - Väga suur (ilmneb kindlasti)"), enc("5 - Eriti raske (surmaga lõppev õnnetus)")])
+    pdf.cell(0, 4, enc("Skoor: 1-4 Madal, 5-12 Keskmine, 15-25 KORGE (Too keelatud!)"), ln=True)
 
-    pdf.ln(4)
-    pdf.set_font("helvetica", 'B', 8)
-    pdf.cell(0, 5, enc("RISKI TASEME HINNANG (Skoor = T x R):"), ln=True)
-    pdf.set_font("helvetica", '', 7)
-    pdf.cell(0, 4, enc("- 1 kuni 4: MADAL RISK. Ohutusmeetmed on piisavad, töö on lubatud."), ln=True)
-    pdf.cell(0, 4, enc("- 5 kuni 12: KESKMINE RISK. Vajalikud on täiendavad meetmed ja kõrgendatud tähelepanu."), ln=True)
-    pdf.cell(0, 4, enc("- 15 kuni 25: KÕRGE RISK (TÖÖ KEELATUD!). Oht on liiga suur, töö tuleb peatada!"), ln=True)
-
-    pdf.ln(8)
-    pdf.set_font("helvetica", 'B', 10)
+    pdf.ln(10)
     pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
     pdf.cell(95, 10, enc("Töötaja allkiri: ........................."), 0, 1)
 
