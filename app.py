@@ -85,7 +85,7 @@ with col_b:
     ilm_tekst = st.text_input(T['temp'], value=auto_ilm)
     haigla = st.text_input("Lähim EMO / Hospital", "PERH / TÜ Kliinikum")
 with col_a:
-    tooaandja = st.text_input(T['employer'], "Aiavana Hooldusteenused OÜ")
+    tooaandja = st.text_input(T['employer'], "Framiter OÜ")
     # TEGIJA NIMI ON NÜÜD TÜHI VAIKIMISI
     vastutav = st.text_input(T['responsible'], value="") 
     aadress = st.text_input(T['address'], "")
