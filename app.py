@@ -18,8 +18,8 @@ MAAKONNAD = {
 LANG = {
     "ET": {
         "title": "TÖÖKOHA RISKIANALÜÜS", "employer": "Tööandja", "responsible": "Vastutav isik / Teostaja", 
-        "address": "Objekti aadress", "owner": "Tellija / Omaniku kontakt", "time": "Töö algusaeg",
-        "weather": "Tuul (m/s)", "temp": "Ilm/Temp", "county": "Vali maakond", 
+        "address": "Objekti aadress", "owner": "Tellija / Omanik", "time": "Töö algusaeg",
+        "weather": "Tuul (m/s)", "temp": "Ilm/Temp", "county": "Maakond", 
         "tree": "Puu liik ja seisund", "env": "Teed, rajad ja pinnas", 
         "risk_tab": "RISKIDE HINDAMINE", "hazard": "Oht", "desc": "Kirjeldus", 
         "tools": "Varustus", "measures": "Meetmed", "score": "Skoor",
@@ -35,9 +35,9 @@ LANG = {
         ]
     },
     "EN": {
-        "title": "SITE RISK ASSESSMENT", "employer": "Employer", "responsible": "Person in charge / Performer", 
-        "address": "Site address", "owner": "Client / Owner contact", "time": "Start time",
-        "weather": "Wind (m/s)", "temp": "Weather/Temp", "county": "Select county", 
+        "title": "SITE RISK ASSESSMENT", "employer": "Employer", "responsible": "Person in charge", 
+        "address": "Site address", "owner": "Client / Owner", "time": "Start time",
+        "weather": "Wind (m/s)", "temp": "Weather/Temp", "county": "County", 
         "tree": "Tree species & condition", "env": "Paths, roads & soil", 
         "risk_tab": "RISK ASSESSMENT", "hazard": "Hazard", "desc": "Description", 
         "tools": "Equipment", "measures": "Mitigation", "score": "Score",
@@ -73,7 +73,7 @@ st.set_page_config(page_title="Arborisk Pro", layout="wide")
 lang_choice = st.sidebar.radio("Keel / Language", ["ET", "EN"])
 T = LANG[lang_choice]
 
-st.title(f"🌳 Arborisk Pro v6.7")
+st.title(f"🌳 Arborisk Pro v6.9")
 
 st.header(f"1. {T['employer']} & KONTAKT")
 col_a, col_b = st.columns(2)
@@ -85,8 +85,7 @@ with col_b:
     ilm_tekst = st.text_input(T['temp'], value=auto_ilm)
     haigla = st.text_input("Lähim EMO / Hospital", "PERH / TÜ Kliinikum")
 with col_a:
-    tooaandja = st.text_input(T['employer'], "Framiter OÜ")
-    # TEGIJA NIMI ON NÜÜD TÜHI VAIKIMISI
+    tooaandja = st.text_input(T['employer'], "Aiavana Hooldusteenused OÜ")
     vastutav = st.text_input(T['responsible'], value="") 
     aadress = st.text_input(T['address'], "")
     omanik_info = st.text_input(T['owner'], "")
@@ -99,11 +98,11 @@ col_c, col_d = st.columns(2)
 with col_c:
     puu_liik = st.text_input("Puu liik / Tree species")
     puu_korgus = st.number_input("Puu kõrgus (m) / Tree height", min_value=0, value=20)
-    puu_seisund = st.text_area("Seisund / Condition", placeholder="Seenhaigused, kalle...")
+    puu_seisund = st.text_area("Seisund / Condition")
 with col_d:
     ohuala_raadius = puu_korgus * 2
     st.metric("Ohuala raadius (m)", f"{ohuala_raadius} m")
-    keskkond_info = st.text_area(T['env'], placeholder="Pinnas, teed...")
+    keskkond_info = st.text_area(T['env'])
     pääste_info = st.text_input("Ligipääs päästetele", placeholder="Värava kood jne")
 
 st.divider()
@@ -129,43 +128,53 @@ for i, oht in enumerate(T["hazards_base"]):
 
 foto = st.file_uploader("Lisa foto", type=['jpg', 'jpeg', 'png'])
 
+# --- 3. PDF GENEREERIMINE ---
 def loe_pdf():
     pdf = FPDF()
     pdf.add_page()
     def enc(txt): return str(txt).encode('latin-1', 'replace').decode('latin-1')
-    pdf.set_font("helvetica", 'B', 14)
-    pdf.cell(0, 10, enc(T['title']), ln=True, align='C')
-    pdf.set_font("helvetica", '', 10)
+    
+    # PEALKIRI
+    pdf.set_font("helvetica", 'B', 16)
+    pdf.cell(0, 12, enc(T['title']), ln=True, align='C')
     pdf.ln(5)
     
-    # TELLIIJA ANDMED NÜÜD PDF-IS SEES
-    with pdf.table(col_widths=(45, 145)) as table:
+    # 1. ÜLDINFO (Reavahega tabel)
+    pdf.set_font("helvetica", 'B', 13)
+    pdf.cell(0, 10, enc("1. " + T['employer']), ln=True)
+    pdf.set_font("helvetica", '', 12)
+    with pdf.table(col_widths=(55, 135), line_height=9) as table: # line_height tõstetud
         table.row([enc(T['employer']), enc(tooaandja)])
         table.row([enc(T['responsible']), enc(vastutav)])
         table.row([enc(T['address']), enc(aadress)])
         table.row([enc(T['owner']), enc(omanik_info)])
-        table.row([enc(T['weather']), enc(f"{tuul} m/s, {ilm_tekst}")])
-        table.row([enc("Päästeinfo"), enc(pääste_info)])
+        table.row([enc("Ilm / Aeg"), enc(f"{ilm_tekst}, {tuul} m/s | {datetime.date.today()} / {kellaaeg}")])
     
-    pdf.ln(5)
-    pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc(f"{T['tree']} (Ohuala: {ohuala_raadius}m)"), ln=True)
-    pdf.set_font("helvetica", '', 10)
-    pdf.multi_cell(0, 5, enc(f"{puu_liik}: {puu_seisund}\n{keskkond_info}"))
+    # 2. PUU INFO
+    pdf.ln(8)
+    pdf.set_font("helvetica", 'B', 13)
+    pdf.cell(0, 10, enc("2. " + T['tree']), ln=True)
+    pdf.set_font("helvetica", '', 12)
+    # multi_line_cell meetodit kasutatakse automaatselt table() sees
+    with pdf.table(col_widths=(55, 135), line_height=9) as table:
+        table.row([enc("Puu liik & seisund"), enc(f"{puu_liik}: {puu_seisund}")])
+        table.row([enc("Ohuala raadius"), enc(f"{ohuala_raadius} m")])
+        table.row([enc("Keskkond / Pinnas"), enc(keskkond_info)])
     
-    pdf.ln(5)
-    pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc(T['risk_tab']), ln=True)
-    pdf.set_font("helvetica", '', 6)
-    with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
+    # 3. RISKIMAATRIKS (Suurem reavahe ja 9pt font)
+    pdf.ln(8)
+    pdf.set_font("helvetica", 'B', 13)
+    pdf.cell(0, 10, enc("3. " + T['risk_tab']), ln=True)
+    pdf.set_font("helvetica", '', 9) 
+    with pdf.table(col_widths=(30, 35, 40, 65, 20), line_height=7) as table: # line_height 6 -> 7
         table.row([enc(T['hazard']), enc(T['desc']), enc(T['tools']), enc(T['measures']), enc(T['score'])])
         for rida in tabeli_andmed: table.row([enc(item) for item in rida])
     
-    pdf.ln(10)
-    pdf.set_font("helvetica", 'B', 9)
-    pdf.cell(0, 5, enc(T['summary']), ln=True)
-    pdf.set_font("helvetica", '', 7)
-    pdf.cell(0, 4, enc("T (1-5) x R (1-5) = Score. 1-4: Low, 5-12: Med, 15-25: High (STOP!)"), ln=True)
+    # ALLKIRJAD
+    pdf.ln(15)
+    pdf.set_font("helvetica", 'B', 11)
+    pdf.cell(95, 10, enc("Koostaja allkiri: ........................."), 0, 0)
+    pdf.cell(95, 10, enc("Tootaja allkiri: ........................."), 0, 1)
 
     if foto:
         pdf.add_page()
@@ -177,4 +186,4 @@ def loe_pdf():
 
 if st.button(T['gen']):
     output = loe_pdf()
-    st.download_button("📥 PDF", bytes(output), f"Risk_{aadress}.pdf", "application/pdf")
+    st.download_button("📥 LAADI ALLA PDF", bytes(output), f"Riskianalyys_{aadress}.pdf", "application/pdf")
