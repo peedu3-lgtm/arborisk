@@ -17,8 +17,8 @@ MAAKONNAD = {
 
 LANG = {
     "ET": {
-        "title": "TÖÖKOHA RISKIANALÜÜS", "employer": "Tööandja", "responsible": "Vastutav isik", 
-        "address": "Objekti aadress", "owner": "Omaniku kontakt", "time": "Töö algusaeg",
+        "title": "TÖÖKOHA RISKIANALÜÜS", "employer": "Tööandja", "responsible": "Vastutav isik / Teostaja", 
+        "address": "Objekti aadress", "owner": "Tellija / Omaniku kontakt", "time": "Töö algusaeg",
         "weather": "Tuul (m/s)", "temp": "Ilm/Temp", "county": "Vali maakond", 
         "tree": "Puu liik ja seisund", "env": "Teed, rajad ja pinnas", 
         "risk_tab": "RISKIDE HINDAMINE", "hazard": "Oht", "desc": "Kirjeldus", 
@@ -35,8 +35,8 @@ LANG = {
         ]
     },
     "EN": {
-        "title": "SITE RISK ASSESSMENT", "employer": "Employer", "responsible": "Person in charge", 
-        "address": "Site address", "owner": "Owner contact", "time": "Start time",
+        "title": "SITE RISK ASSESSMENT", "employer": "Employer", "responsible": "Person in charge / Performer", 
+        "address": "Site address", "owner": "Client / Owner contact", "time": "Start time",
         "weather": "Wind (m/s)", "temp": "Weather/Temp", "county": "Select county", 
         "tree": "Tree species & condition", "env": "Paths, roads & soil", 
         "risk_tab": "RISK ASSESSMENT", "hazard": "Hazard", "desc": "Description", 
@@ -65,7 +65,7 @@ def get_weather(lat, lon):
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m&wind_speed_unit=ms"
         response = requests.get(url, timeout=3)
         data = response.json()
-        return round(data['current']['wind_speed_10m'], 1), f"{data['current']['temperature_2m']}C"
+        return round(data['current']['wind_speed_10m'], 1), f"{data['current']['temperature_2m']}°C"
     except: return 0.0, "N/A"
 
 # --- 1. UI ---
@@ -73,9 +73,9 @@ st.set_page_config(page_title="Arborisk Pro", layout="wide")
 lang_choice = st.sidebar.radio("Keel / Language", ["ET", "EN"])
 T = LANG[lang_choice]
 
-st.title(f"🌳 Arborisk Pro v6.5")
+st.title(f"🌳 Arborisk Pro v6.7")
 
-st.header(f"1. {T['employer']}")
+st.header(f"1. {T['employer']} & KONTAKT")
 col_a, col_b = st.columns(2)
 with col_b:
     maakond = st.selectbox(T['county'], list(MAAKONNAD.keys()))
@@ -83,19 +83,28 @@ with col_b:
     auto_tuul, auto_ilm = get_weather(lat, lon)
     tuul = st.number_input(T['weather'], value=auto_tuul)
     ilm_tekst = st.text_input(T['temp'], value=auto_ilm)
-    haigla = st.text_input("EMO", "PERH / TÜ Kliinikum")
+    haigla = st.text_input("Lähim EMO / Hospital", "PERH / TÜ Kliinikum")
 with col_a:
     tooaandja = st.text_input(T['employer'], "Aiavana Hooldusteenused OÜ")
-    vastutav = st.text_input(T['responsible'], "Ivar Peedu")
+    # TEGIJA NIMI ON NÜÜD TÜHI VAIKIMISI
+    vastutav = st.text_input(T['responsible'], value="") 
     aadress = st.text_input(T['address'], "")
     omanik_info = st.text_input(T['owner'], "")
     kellaaeg = st.text_input(T['time'], value=get_eesti_aeg())
 
 st.divider()
-st.header(f"2. {T['tree']}")
+
+st.header(f"2. {T['tree']} & OHUALA")
 col_c, col_d = st.columns(2)
-with col_c: puu_seisund = st.text_area(T['tree'])
-with col_d: keskkond_info = st.text_area(T['env'])
+with col_c:
+    puu_liik = st.text_input("Puu liik / Tree species")
+    puu_korgus = st.number_input("Puu kõrgus (m) / Tree height", min_value=0, value=20)
+    puu_seisund = st.text_area("Seisund / Condition", placeholder="Seenhaigused, kalle...")
+with col_d:
+    ohuala_raadius = puu_korgus * 2
+    st.metric("Ohuala raadius (m)", f"{ohuala_raadius} m")
+    keskkond_info = st.text_area(T['env'], placeholder="Pinnas, teed...")
+    pääste_info = st.text_input("Ligipääs päästetele", placeholder="Värava kood jne")
 
 st.divider()
 st.header(f"3. {T['risk_tab']}")
@@ -116,10 +125,9 @@ for i, oht in enumerate(T["hazards_base"]):
         with c4: t = st.selectbox("T", [1,2,3,4,5], index=oht[2]-1, key=f"t{i}_{lang_choice}")
         with c5: r = st.selectbox("R", [1,2,3,4,5], index=oht[3]-1, key=f"r{i}_{lang_choice}")
         sk = t * r
-        st.write(f"{T['score']}: **{sk}**")
         tabeli_andmed.append([oht[0], kirj, v_kokku, m_kokku, f"{sk}"])
 
-foto = st.file_uploader("Foto", type=['jpg', 'jpeg', 'png'])
+foto = st.file_uploader("Lisa foto", type=['jpg', 'jpeg', 'png'])
 
 def loe_pdf():
     pdf = FPDF()
@@ -129,17 +137,22 @@ def loe_pdf():
     pdf.cell(0, 10, enc(T['title']), ln=True, align='C')
     pdf.set_font("helvetica", '', 10)
     pdf.ln(5)
+    
+    # TELLIIJA ANDMED NÜÜD PDF-IS SEES
     with pdf.table(col_widths=(45, 145)) as table:
         table.row([enc(T['employer']), enc(tooaandja)])
         table.row([enc(T['responsible']), enc(vastutav)])
         table.row([enc(T['address']), enc(aadress)])
+        table.row([enc(T['owner']), enc(omanik_info)])
         table.row([enc(T['weather']), enc(f"{tuul} m/s, {ilm_tekst}")])
-        table.row([enc(T['time']), enc(f"{datetime.date.today()} / {kellaaeg}")])
+        table.row([enc("Päästeinfo"), enc(pääste_info)])
+    
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, enc(T['tree']), ln=True)
+    pdf.cell(0, 10, enc(f"{T['tree']} (Ohuala: {ohuala_raadius}m)"), ln=True)
     pdf.set_font("helvetica", '', 10)
-    pdf.multi_cell(0, 5, enc(puu_seisund + "\n" + keskkond_info))
+    pdf.multi_cell(0, 5, enc(f"{puu_liik}: {puu_seisund}\n{keskkond_info}"))
+    
     pdf.ln(5)
     pdf.set_font("helvetica", 'B', 11)
     pdf.cell(0, 10, enc(T['risk_tab']), ln=True)
@@ -147,11 +160,13 @@ def loe_pdf():
     with pdf.table(col_widths=(30, 30, 40, 65, 25)) as table:
         table.row([enc(T['hazard']), enc(T['desc']), enc(T['tools']), enc(T['measures']), enc(T['score'])])
         for rida in tabeli_andmed: table.row([enc(item) for item in rida])
+    
     pdf.ln(10)
     pdf.set_font("helvetica", 'B', 9)
     pdf.cell(0, 5, enc(T['summary']), ln=True)
     pdf.set_font("helvetica", '', 7)
     pdf.cell(0, 4, enc("T (1-5) x R (1-5) = Score. 1-4: Low, 5-12: Med, 15-25: High (STOP!)"), ln=True)
+
     if foto:
         pdf.add_page()
         img = Image.open(foto).convert("RGB")
@@ -162,4 +177,4 @@ def loe_pdf():
 
 if st.button(T['gen']):
     output = loe_pdf()
-    st.download_button("PDF", bytes(output), f"Risk_{aadress}.pdf", "application/pdf")
+    st.download_button("📥 PDF", bytes(output), f"Risk_{aadress}.pdf", "application/pdf")
