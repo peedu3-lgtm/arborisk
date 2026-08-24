@@ -82,8 +82,7 @@ with tab1:
     with col1:
         tooaandja = st.text_input("Tööandja (Ettevõtte nimi)", "Framiter OÜ")
         vastutav = st.text_input("Vastutav isik / Tööjuht (Nimi ja tel)", value="") 
-        tootajad = st.text_area("Töögrupi koosseis (Kõik objektil viibivad töötajad)", placeholder="1. Jaan Tamm (Arborist)
-2. Peeter Kask (Abitööline / Maamees)")
+        tootajad = st.text_area("Töögrupi koosseis (Kõik objektil viibivad töötajad)", placeholder="1. Jaan Tamm (Arborist)2. Peeter Kask (Abitööline / Maamees)")
         aadress = st.text_input("Objekti täpne aadress", placeholder="Männi tee 4, Tallinn")
         kellaaeg = st.text_input("Töö algusaeg objektil", value=get_eesti_aeg())
 
